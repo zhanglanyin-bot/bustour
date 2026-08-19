@@ -1,0 +1,461 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>上海→北京 · 公交+地铁慢行路线手册（18天均衡版·绕行衡水）</title>
+<link rel="stylesheet" href="vendor/leaflet.css">
+<meta name="theme-color" content="#1f4d3a">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="apple-mobile-web-app-title" content="京沪手册">
+<style>
+  :root{
+    --bg:#f7f5f0; --card:#ffffff; --ink:#2b2b2b; --sub:#6b6b6b; --line:#e5e0d5;
+    --green:#2f9e6e; --amber:#e0a13c; --red:#d9534f; --blue:#4a7fb5;
+    --deep:#1f4d3a; --chip:#f0ede4;
+  }
+  *{margin:0;padding:0;box-sizing:border-box;}
+  html{scroll-behavior:smooth;}
+  body{background:var(--bg);color:var(--ink);font-family:"PingFang SC","Hiragino Sans GB","Microsoft YaHei",sans-serif;line-height:1.6;}
+  .wrap{max-width:1080px;margin:0 auto;padding:0 20px;}
+
+  header{background:var(--deep);color:#fff;padding:36px 0 28px;}
+  header h1{font-size:26px;font-weight:700;letter-spacing:1px;}
+  header .sub{margin-top:8px;font-size:14px;opacity:.85;}
+  .chips{display:flex;flex-wrap:wrap;gap:10px;margin-top:18px;}
+  .chip{background:rgba(255,255,255,.12);border:1px solid rgba(255,255,255,.25);border-radius:8px;padding:6px 12px;font-size:13px;}
+  .chip b{font-size:16px;margin-right:4px;}
+
+  nav{position:sticky;top:0;z-index:500;background:var(--card);border-bottom:1px solid var(--line);}
+  nav .wrap{display:flex;gap:4px;overflow-x:auto;padding:0 20px;}
+  nav a{display:block;padding:10px 12px;font-size:13px;color:var(--sub);text-decoration:none;white-space:nowrap;border-bottom:2px solid transparent;}
+  nav a:hover{color:var(--deep);border-bottom-color:var(--deep);}
+
+  section{padding:34px 0 6px;}
+  h2{font-size:20px;margin-bottom:6px;}
+  h2 .en{font-size:12px;color:var(--sub);font-weight:400;margin-left:8px;letter-spacing:2px;}
+  .lead{color:var(--sub);font-size:14px;margin-bottom:18px;max-width:820px;}
+
+  .panel{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:18px;margin-bottom:18px;}
+
+  #map{height:540px;border-radius:12px;border:1px solid var(--line);background:#e8e6df;}
+  .legend{display:flex;flex-wrap:wrap;gap:16px;margin-top:12px;font-size:13px;color:var(--sub);align-items:center;}
+  .legend .sw{display:inline-block;width:22px;height:4px;border-radius:2px;vertical-align:middle;margin-right:6px;}
+  .legend .dash{border-top:3px dashed var(--blue);height:0;background:none;}
+  .legend .pin{display:inline-flex;width:18px;height:18px;border-radius:50%;background:#333;color:#fff;font-size:10px;align-items:center;justify-content:center;vertical-align:middle;margin-right:6px;}
+  .map-note{font-size:12px;color:var(--sub);margin-top:8px;}
+
+  .filters{display:flex;gap:8px;margin-bottom:14px;flex-wrap:wrap;}
+  .filters button{border:1px solid var(--line);background:var(--card);border-radius:20px;padding:6px 16px;font-size:13px;color:var(--sub);cursor:pointer;}
+  .filters button.on{background:var(--deep);border-color:var(--deep);color:#fff;}
+
+  .days{display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:12px;}
+  .day-card{background:var(--card);border:1px solid var(--line);border-left:4px solid var(--sub);border-radius:10px;padding:14px 16px;cursor:pointer;transition:transform .12s ease;}
+  .day-card:hover{transform:translateY(-2px);}
+  .day-card.t-play{border-left-color:var(--green);}
+  .day-card.t-move{border-left-color:var(--red);}
+  .day-card.t-both{border-left-color:var(--blue);}
+  .dc-top{display:flex;align-items:center;gap:8px;font-size:12px;margin-bottom:6px;}
+  .dc-day{font-weight:700;font-size:14px;}
+  .dc-type{border-radius:4px;padding:1px 8px;color:#fff;}
+  .t-play .dc-type{background:var(--green);}
+  .t-move .dc-type{background:var(--red);}
+  .t-both .dc-type{background:var(--blue);}
+  .dc-stars{margin-left:auto;color:var(--amber);}
+  .dc-title{font-size:16px;font-weight:600;margin-bottom:4px;}
+  .dc-line{font-size:13px;color:var(--ink);margin-top:3px;}
+  .dc-line .k{color:var(--sub);}
+  .dc-tags{margin-top:8px;display:flex;gap:6px;flex-wrap:wrap;}
+  .tag{font-size:11px;border:1px solid var(--line);border-radius:4px;padding:1px 7px;color:var(--sub);background:var(--chip);}
+
+  .hard-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:14px;}
+  .hard-card{background:var(--card);border:1px solid var(--line);border-top:4px solid var(--red);border-radius:10px;padding:16px;}
+  .hard-card h3{font-size:15px;margin-bottom:8px;}
+  .hard-card .days-tag{font-size:12px;color:var(--red);font-weight:600;}
+  .hard-card p{font-size:13px;margin-top:6px;}
+  .hard-card p b{color:var(--deep);}
+
+  .tips-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:12px;}
+  .tip{background:var(--card);border:1px solid var(--line);border-radius:10px;padding:14px 16px;font-size:13px;}
+  .tip b{display:block;font-size:14px;margin-bottom:4px;color:var(--deep);}
+
+  table{width:100%;border-collapse:collapse;font-size:14px;background:var(--card);border-radius:10px;overflow:hidden;}
+  th,td{text-align:left;padding:10px 14px;border-bottom:1px solid var(--line);}
+  th{background:var(--chip);font-size:13px;color:var(--sub);}
+  tr:last-child td{border-bottom:none;font-weight:700;background:#fbf9f3;}
+
+  .ck-item{display:flex;align-items:flex-start;gap:10px;padding:9px 0;border-bottom:1px dashed var(--line);font-size:14px;}
+  .ck-item:last-child{border-bottom:none;}
+  .ck-item input{margin-top:4px;width:16px;height:16px;accent-color:var(--deep);}
+  .ck-progress{font-size:13px;color:var(--sub);margin-bottom:10px;}
+
+  footer{margin-top:40px;background:var(--card);border-top:1px solid var(--line);padding:24px 0 34px;font-size:12px;color:var(--sub);}
+  footer a{color:var(--blue);text-decoration:none;}
+  footer .src{margin-top:8px;line-height:1.9;}
+
+  .city-pin{display:flex;align-items:center;justify-content:center;border-radius:50%;background:#333;color:#fff;border:2px solid #fff;font-weight:700;font-size:11px;box-shadow:0 1px 3px rgba(0,0,0,.35);}
+  .city-pin.big{width:28px;height:28px;}
+  .city-pin.small{width:14px;height:14px;background:#9aa0a6;}
+  .city-pin.start{background:var(--deep);}
+  .city-pin.end{background:var(--red);}
+
+  @media (max-width:640px){
+    #map{height:400px;}
+    header h1{font-size:21px;}
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="wrap">
+    <h1>上海 → 北京 · 公交+地铁慢行路线手册</h1>
+    <div class="sub">不坐高铁、不坐长途大巴（仅沧州方向两段直达班车破例）· 18天均衡版 · 绕行衡水 · 徐州/济南/天津各休整一天，连续纯移动不超过3天</div>
+    <div class="chips">
+      <span class="chip"><b>18</b>天核心行程</span>
+      <span class="chip"><b>+2~3</b>天机动预留</span>
+      <span class="chip"><b>19</b>座城市</span>
+      <span class="chip"><b>3</b>个休整日</span>
+      <span class="chip"><b>≈5200-6200</b>元参考总预算</span>
+      <span class="chip"><b>2</b>段班车破例</span>
+    </div>
+  </div>
+</header>
+
+<nav>
+  <div class="wrap">
+    <a href="#map-section">路线地图</a>
+    <a href="#itinerary">逐日行程</a>
+    <a href="#hardcore">硬路段预警</a>
+    <a href="#tips">实用贴士</a>
+    <a href="#budget">预算明细</a>
+    <a href="#checklist">行前清单</a>
+  </div>
+</nav>
+
+<main class="wrap">
+
+<section id="map-section">
+  <h2>路线地图<span class="en">ROUTE MAP</span></h2>
+  <p class="lead">线路颜色代表该城际段难度，虚线为轮渡过江。点击城市圆点看详情；线路为示意走向，实际换乘以高德实时公交为准。</p>
+  <div id="map"></div>
+  <div class="legend">
+    <span><span class="sw" style="background:var(--green)"></span>轻松段（地铁/短驳）</span>
+    <span><span class="sw" style="background:var(--amber)"></span>中等段</span>
+    <span><span class="sw" style="background:var(--red)"></span>硬路段（班次稀疏）</span>
+    <span><span class="sw dash"></span>轮渡</span>
+    <span><span class="pin">D</span>到达日序号</span>
+    <span>右上角可切换高德/OSM底图</span>
+  </div>
+  <div class="map-note">提示：底图若加载缓慢可切换右上角图层；圆点序号为到达该城市的日期（起=出发，终=抵达北京，灰点=途经不住宿）。</div>
+</section>
+
+<section id="itinerary">
+  <h2>逐日行程<span class="en">DAY BY DAY</span></h2>
+  <p class="lead">每天按 路线 / 交通 / 美食 / 景点 四个维度展示——纯移动日也安排了当地正餐，不亏待胃。点击任意卡片，地图会飞到对应路段。难度星标：★越多班次越稀疏、越要早出发。绿色为休整日、红色为纯移动日、蓝色为移动+傍晚玩。</p>
+  <div class="filters">
+    <button class="on" data-f="all">全部 18 天</button>
+    <button data-f="play">有游玩安排 11 天</button>
+    <button data-f="move">纯移动 7 天</button>
+  </div>
+  <div class="days" id="daysGrid"></div>
+</section>
+
+<section id="hardcore">
+  <h2>风险点与破例段预警<span class="en">HARD SECTIONS</span></h2>
+  <p class="lead">风险集中在三处：D6-D7的县域公交段、D15-D16两段班车破例。济南→德州→衡水已有济德、德衡两条城际公交，后半程北段大幅降级。共同对策：前一晚用高德"实时公交"把次日每一段查好再睡；班车段提前到站买票；备干粮和水。下方时刻为2026年8月公开信息查得的参考值，班次随时调整，临行前务必逐条复核。另外D9-D11是全程唯一连续3天的移动段，中间D10只有5-6小时相对轻松，撑过去就是济南休整日。</p>
+  <div class="hard-grid">
+    <div class="hard-card">
+      <div class="days-tag">D6-D7</div>
+      <h3>滁州 — 蚌埠 — 徐州</h3>
+      <p><b>难在哪：</b>沿G104的县域公交班次稀疏，部分站点没有站牌，等1-2小时定点班车是常态。</p>
+      <p><b>时刻参考：</b>蚌埠—固镇2022年起城乡公交一体化，覆盖好于预期；<b>固镇→宿州仅7:30/8:40/14:30三班、15元</b>（返程10:10/12:00/16:20），D7务必赶上午班；萧县→徐州901路跨省公交5:10-19:00（冬半年5:30起）、30-60分钟一班、约5元，上了这段就轻松。</p>
+      <p><b>对策：</b>拆成两天走，蚌埠住一晚；明光、固镇、宿州都可作中途住宿点；到徐州有整天休整回血。</p>
+    </div>
+    <div class="hard-card">
+      <div class="days-tag">D15 · 破例段①</div>
+      <h3>衡水 — 沧州（直达班车）</h3>
+      <p><b>为什么破例：</b>沧州对外的所有方向（德州、衡水、廊坊、天津）均未查到确认的公交化走廊，绕行无法绕开沧州，班车是唯一现实选择。</p>
+      <p><b>走法：</b>衡水汽车站乘直达班车，约2.5-3小时，上午班次较多，赶早不赶晚。</p>
+      <p><b>对策：</b>把破例集中在"地级市之间的直达班车"这一整段，避免吴桥/东光式的多段县级班车接力；到沧州后傍晚南川老街、运河边回血。</p>
+    </div>
+    <div class="hard-card">
+      <div class="days-tag">D16 · 破例段②</div>
+      <h3>沧州 — 天津（直达班车）</h3>
+      <p><b>为什么破例：</b>沧州→青县仍无确认城际公交（当地口径"成熟一条推进一条"），青县→静海的衔接同样不明。</p>
+      <p><b>好消息：</b>沧州↔天津直达班车高频，天津客运西站口径6:00-12:00每20分钟一班——这段破例几乎没有等待风险。相比之下衡水/德州直达天津的班车每天只有1-2班，所以保留沧州反而是最稳的走法。</p>
+      <p><b>走法：</b>上午随到随走（约2h），傍晚抵津正好赶上海河夜景，次日休整。</p>
+    </div>
+  </div>
+</section>
+
+<section id="tips">
+  <h2>实用贴士<span class="en">TIPS</span></h2>
+  <div class="tips-grid">
+    <div class="tip"><b>导航</b>高德/百度"实时公交"逐段查，把长途拆成短段；优先选发车频次高的线路，宁可多换乘、不等定点班车。</div>
+    <div class="tip"><b>支付</b>各地地铁和市区公交用支付宝/云闪付乘车码基本通用；县乡公交很多只收现金，备200元零钱。</div>
+    <div class="tip"><b>行李</b>一个30-40L双肩包足够，不建议拉杆箱——长距离步行和上下天桥时差别巨大。</div>
+    <div class="tip"><b>吃喝</b>扬州早茶名店要排长队，赶时间随便找家老店也一样；徐州烧烤、德州扒鸡、天津煎饼果子都在路边解决，不占行程。</div>
+    <div class="tip"><b>休整日用法</b>徐州日除了溜达，还要洗衣、补给干粮和水，为D9-D11北方段做准备；济南日别排满，泉边坐一下午也是正事。</div>
+    <div class="tip"><b>保底方案</b>错过末班车就在就近县城住下次日再走，不要硬撑夜路；机动预留的2-3天就是为这个准备的。</div>
+    <div class="tip"><b>季节</b>10月中下旬出发正当季：秋高气爽少雨，避开了国庆人潮；昼夜温差大，河北段早晚只有5-10℃；北方天黑早，下午4点后尽量不再安排长段移动。</div>
+  </div>
+</section>
+
+<section id="budget">
+  <h2>预算明细<span class="en">BUDGET</span></h2>
+  <p class="lead">按18天、17晚估算；除趵突泉可选项外基本零门票；含衡水—沧州、沧州—天津两段班车破例。</p>
+  <table>
+    <tr><th>项目</th><th>估算</th><th>说明</th></tr>
+    <tr><td>城际+市内公交/地铁车费</td><td>≈500元</td><td>公交参考318-381元 + 两段班车约100元</td></tr>
+    <tr><td>住宿 × 17晚</td><td>2400-3400元</td><td>快捷酒店/青旅单间，均价140-200元</td></tr>
+    <tr><td>餐饮 × 18天</td><td>≈1800元</td><td>均价100元/天，早茶烧烤略高</td></tr>
+    <tr><td>门票</td><td>0-40元</td><td>安排的点位基本免费，趵突泉40元可选</td></tr>
+    <tr><td>备用金</td><td>500元</td><td>错过末班车打车救急等</td></tr>
+    <tr><td>合计</td><td>约5200-6200元</td><td>不含购物</td></tr>
+  </table>
+</section>
+
+<section id="checklist">
+  <h2>行前清单<span class="en">CHECKLIST</span></h2>
+  <div class="panel">
+    <div class="ck-progress" id="ckProgress">已完成 0 / 10</div>
+    <div id="ckList"></div>
+  </div>
+</section>
+
+</main>
+
+<footer>
+  <div class="wrap">
+    <div>整理于 2026-08 · 时刻参考与衡水绕行方案更新于 2026-08-18 · 路线为示意规划，各城际段班次随时变动，出发前一晚务必用高德/百度实时公交逐段复核，班车段提前到站确认。</div>
+    <div class="src">
+      参考来源：
+      <a href="http://m.cyol.com/gb/articles/2021-05/14/content_weMZbcRMA.html" target="_blank">中青在线《坐公交从上海飚到北京》</a> ·
+      <a href="https://www.jfdaily.com/wx/detail.do?id=367296" target="_blank">解放日报《6天5夜1291站，车费318元》</a> ·
+      <a href="https://tt.sina.cn/article_2309404884220865806769.html?vt=4" target="_blank">新浪《1543站，从上海坐公交晃荡到北京》</a> ·
+      <a href="https://www.mot.gov.cn/xinwen/jiaotongyaowen/202604/t20260421_4204063.html" target="_blank">交通运输部《京津首条跨城公交开跑》</a> ·
+      <a href="https://www.china-emu.cn/UrbanRails/Line/320184/" target="_blank">宁滁城际（南京地铁S4）</a> ·
+      <a href="https://news.iqilu.com/shandong/shandonggedi/20230621/5454206.shtml" target="_blank">齐鲁网《济南至德州城际公交正式开通》</a> ·
+      <a href="https://news.iqilu.com/shandong/shandonggedi/20230825/5498412.shtml" target="_blank">齐鲁网《德州至衡水城际公交K206开通》</a> ·
+      <a href="https://ishare.ifeng.com/c/s/7kqusmcTe93" target="_blank">凤凰网《徐萧城际公交901路首末班时间》</a> ·
+      <a href="https://www.qingxian.gov.cn/qingxian/c110767/202111/f04a7d2674fe4aca934b5476e86000f3.shtml" target="_blank">青县政府答复（沧州—青县城际公交进展）</a> ·
+      <a href="https://www.lf.gov.cn/Item/146155.aspx" target="_blank">廊坊市政府《廊坊至武清定制公交等跨区域公交线路》</a> ·
+      <a href="https://m.tj.bendibao.com/bus/xianlu_28849.htm" target="_blank">天津本地宝《551路》</a> ·
+      <a href="https://m.tj.bendibao.com/traffic/60423.shtm" target="_blank">天津本地宝《天津客运西站时刻表》</a> ·
+      <a href="https://www.news.cn/photo/2023-08/09/c_1129794392.htm" target="_blank">新华网《涿州至北京838路公交》</a>
+    </div>
+  </div>
+</footer>
+
+<script src="vendor/leaflet.min.js"></script>
+<script>
+/* ============ 数据 ============ */
+var COLORS = {1:'#2f9e6e', 2:'#e0a13c', 3:'#d9534f'};
+
+var CITIES = [
+  {name:'上海', lat:31.2304, lng:121.4737, day:'起', nights:0, metro:true, start:true, play:'出发 · 地铁11号线一路向西'},
+  {name:'苏州', lat:31.2989, lng:120.5853, day:1, nights:1, metro:true, play:'傍晚平江路散步 · 山塘街夜景'},
+  {name:'无锡', lat:31.4912, lng:120.3119, day:2, nights:1, metro:true, play:'晚上南长街 · 清名桥'},
+  {name:'常州', lat:31.8106, lng:119.9741, day:3, nights:0, metro:true, pass:true, play:'D3 途经换乘'},
+  {name:'镇江', lat:32.1877, lng:119.4250, day:3, nights:1, metro:false, play:'傍晚西津渡 · 锅盖面 · 肴肉'},
+  {name:'扬州', lat:32.3947, lng:119.4128, day:4, nights:0, metro:false, play:'D4 半日停留 · 早茶'},
+  {name:'南京', lat:32.0603, lng:118.7969, day:4, nights:1, metro:true, play:'晚上夫子庙 · 秦淮河夜景'},
+  {name:'滁州', lat:32.3016, lng:118.3162, day:5, nights:1, metro:true, metroNote:'宁滁城际S4滁州段', play:'到达后休整'},
+  {name:'蚌埠', lat:32.9166, lng:117.3884, day:6, nights:1, metro:false, play:'到达后休整'},
+  {name:'宿州市', lat:33.6463, lng:116.9641, day:7, nights:0, metro:false, pass:true, play:'D7 途经'},
+  {name:'徐州', lat:34.2615, lng:117.1848, day:7, nights:2, metro:true, play:'D8 休整日 · 云龙湖散步 · 烧烤'},
+  {name:'枣庄', lat:34.8107, lng:117.3236, day:9, nights:1, metro:false, play:'到达后休整'},
+  {name:'济宁', lat:35.4146, lng:116.5872, day:10, nights:1, metro:false, play:'傍晚运河边走走'},
+  {name:'济南', lat:36.6512, lng:117.1201, day:11, nights:2, metro:true, play:'D12 休整日 · 黑虎泉打水 · 大明湖'},
+  {name:'德州', lat:37.4341, lng:116.3575, day:13, nights:1, metro:false, play:'D13 下午 · 老城区溜达 · 扒鸡原产地'},
+  {name:'衡水', lat:37.7390, lng:115.6700, day:14, nights:1, metro:false, play:'D14 下午 · 衡水湖散步 · 尝衡水老白干'},
+  {name:'沧州', lat:38.3037, lng:116.8388, day:15, nights:1, metro:false, play:'傍晚南川老街 · 运河边夜景'},
+  {name:'天津', lat:39.3434, lng:117.3616, day:16, nights:2, metro:true, play:'D17 休整日 · 五大道 · 相声 · 煎饼果子'},
+  {name:'北京', lat:39.9042, lng:116.4074, day:18, nights:0, metro:true, end:true, play:'抵达 · 武清专1路→次渠地铁站进城'}
+];
+var cityByName = {};
+CITIES.forEach(function(c){ cityByName[c.name] = c; });
+
+var SEGMENTS = [
+  {from:'上海', to:'苏州', level:1, label:'D1 · 地铁11号线→苏州11号线无缝跨省'},
+  {from:'苏州', to:'无锡', level:2, label:'D2 · G312公交接力 约3h'},
+  {from:'无锡', to:'常州', level:2, label:'D3 · 公交 约2.5h'},
+  {from:'常州', to:'镇江', level:2, label:'D3 · 公交 约3h'},
+  {from:'镇江', to:'扬州', level:1, ferry:true, label:'D4 · 轮渡过长江'},
+  {from:'扬州', to:'南京', level:2, label:'D4 · 经仪征接力 约4h'},
+  {from:'南京', to:'滁州', level:2, label:'D5 · 公交至汊河+宁滁城际'},
+  {from:'滁州', to:'蚌埠', level:3, label:'D6 · G104经明光 · 班次稀疏'},
+  {from:'蚌埠', to:'徐州', level:3, label:'D7 · 固镇·宿州·萧县接力'},
+  {from:'徐州', to:'枣庄', level:3, label:'D9 · 铜山·滕州 约6h'},
+  {from:'枣庄', to:'济宁', level:2, label:'D10 · 经邹城·兖州 约5-6h'},
+  {from:'济宁', to:'济南', level:3, label:'D11 · 汶上·东平·长清 全天'},
+  {from:'济南', to:'德州', level:2, label:'D13 · 济德城际公交直达 约2.5h'},
+  {from:'德州', to:'衡水', level:2, label:'D14 · 德衡城际K206直达 约2.5h'},
+  {from:'衡水', to:'沧州', level:3, label:'D15 · 直达班车 · 破例段①'},
+  {from:'沧州', to:'天津', level:3, label:'D16 · 直达班车 · 破例段②'},
+  {from:'天津', to:'北京', level:2, label:'D18 · 武清+武清专1路跨省公交'}
+];
+
+var DAYS = [
+  {d:1,type:'both',stars:1,title:'上海 → 苏州',route:'地铁11号线→花桥→苏州11号线',traffic:'全程约2h，唯一纯地铁跨省段，无缝换乘。',food:'出发前吃上海生煎/葱油拌面；晚上苏帮菜（松鼠鳜鱼偏甜口），平江路小吃随走随吃。',sights:'平江路傍晚散步 · 山塘街夜景 · 拙政园/苏州博物馆需提前预约（可选）。',tags:['地铁'],segs:[0]},
+  {d:2,type:'both',stars:2,title:'苏州 → 无锡',route:'G312方向公交接力',traffic:'约3h，班次较密，随到随转。',food:'无锡小笼是甜口的，入乡随俗尝一笼；三凤桥酱排骨带走当夜宵。',sights:'晚上南长街 · 清名桥，有兴趣可加清名桥古运河游船（可选）。',tags:['公交'],segs:[1]},
+  {d:3,type:'both',stars:2,title:'无锡 → 常州 → 镇江',route:'无锡→常州（只换乘）→镇江，公交两段接力',traffic:'合计约5.5h（2.5h+3h），上午出发、傍晚到镇江正好晚饭。',food:'常州大麻糕当午餐；晚餐镇江锅盖面+肴肉，体验"肉当配菜、醋当佐料"的镇江三怪。',sights:'傍晚西津渡老街（免费）· 金山寺（可选）。',tags:['公交'],segs:[2,3]},
+  {d:4,type:'both',stars:2,title:'镇江 → 扬州 → 南京',route:'轮渡过长江→扬州半日→经仪征公交接力到南京',traffic:'合计约5.5h；赶时间可跳过扬州直接经仪征到南京（约4h）。',food:'扬州早茶：三丁包、大煮干丝、蟹黄汤包——名店排长队，随便找家老店也一样；晚上南京盐水鸭/鸭血粉丝汤。',sights:'扬州瘦西湖（可选，需半天）；晚上南京夫子庙 · 秦淮河夜景。',tags:['轮渡','公交','地铁'],segs:[4,5]},
+  {d:5,type:'both',stars:2,title:'南京 → 滁州',route:'公交至汊河→宁滁城际S4滁州段进城',traffic:'约3.5h，S4滁州段是轨道交通，坐着舒服。',food:'滁州没有招牌大菜，晚餐简单吃、早点睡，把胃口留给明天蚌埠的小龙虾。',sights:'出发前上午玄武湖边溜达一圈（免费）。',tags:['公交','地铁'],segs:[6]},
+  {d:6,type:'move',stars:3,title:'滁州 → 蚌埠',route:'G104经明光公交接力',traffic:'班次稀疏、全天赶路，务必早出发；备干粮和水。',food:'晚餐蚌埠小龙虾+烧烤——蚌埠是皖北名副其实的小吃城，这顿就是今天赶路的目标。',sights:'今天不安排，早休息，明天还有硬路段。',tags:['公交'],segs:[7]},
+  {d:7,type:'move',stars:3,title:'蚌埠 → 徐州',route:'固镇→宿州→萧县→徐州接力',traffic:'固镇→宿州仅7:30/8:40/14:30三班（15元），务必赶上午班；萧县→徐州901路30-60分钟一班（5:10-19:00、约5元）。',food:'午餐宿州符离集烧鸡（就在沿线）；晚餐徐州烧烤开胃。',sights:'今天没有，明天徐州休整日好好逛。',tags:['公交','地铁'],segs:[8]},
+  {d:8,type:'play',stars:0,title:'徐州 · 休整日',route:'徐州市内休整',traffic:'市内自由活动，地铁1号线直达云龙湖；顺便洗衣、补给干粮和水。',food:'早上饣它汤，中午地锅鸡，晚上徐州烧烤——烧烤重镇别错过。',sights:'云龙湖环湖溜达（免费）；对汉文化有兴趣可加汉兵马俑博物馆（可选，门票）。',tags:['地铁'],city:'徐州'},
+  {d:9,type:'move',stars:3,title:'徐州 → 枣庄',route:'铜山→滕州→枣庄接力',traffic:'约6h，班次稀疏，全天赶路早出发。',food:'午餐路上简餐；晚餐枣庄辣子鸡+菜煎饼，本地人餐桌上的两大件。',sights:'台儿庄古城离市区约1小时车程，需半天绕行，本次不安排；机动预留日富余的话可换一天进去。',tags:['公交'],segs:[9]},
+  {d:10,type:'move',stars:2,title:'枣庄 → 济宁',route:'经邹城、兖州接力',traffic:'约5-6h，连续移动段里最轻松的一天。',food:'晚餐济宁甏肉干饭，一碗管饱管够。',sights:'傍晚运河边走走；曲阜三孔在枣庄方向略绕路，时间富余可加半天（三孔联票）。',tags:['公交'],segs:[10]},
+  {d:11,type:'move',stars:3,title:'济宁 → 济南',route:'汶上→东平→长清接力',traffic:'全天，班次稀疏，早出发。',food:'晚餐济南芙蓉街小吃+把子肉，先到先吃。',sights:'晚上芙蓉街、曲水亭街走一走，算休整日的前奏。',tags:['公交','地铁'],segs:[11]},
+  {d:12,type:'play',stars:0,title:'济南 · 休整日',route:'济南市内休整',traffic:'市内自由活动，地铁+公交。',food:'早上甜沫+油旋，中午把子肉；想吃顿正经鲁菜就点九转大肠。',sights:'黑虎泉看本地人打水（免费）· 大明湖边走走（免费）· 对泉水感兴趣加趵突泉（40元，可选）；千佛山也可选。',tags:['地铁'],city:'济南'},
+  {d:13,type:'both',stars:2,title:'济南 → 德州',route:'济德城际公交直达',traffic:'约2.5h，30分钟一班、40元；2023年6月开通后不再是硬路段，上午出发即可。',food:'德州扒鸡原产地，下午路边店买一只现做的带走。',sights:'董子公园（免费）· 老城区溜达。',tags:['公交'],segs:[12]},
+  {d:14,type:'both',stars:2,title:'德州 → 衡水',route:'德衡城际公交K206直达',traffic:'约2.5h，全程48站；2023年8月开通，零破例，多玩一座城市。',food:'晚餐简单吃，就一口衡水老白干尝尝（别贪杯，明天还有路）。',sights:'下午衡水湖边溜达。',tags:['公交'],segs:[13]},
+  {d:15,type:'move',stars:3,title:'衡水 → 沧州',route:'衡水→沧州直达班车（破例段①）',traffic:'约2.5-3h，上午班次较多；衡水汽车站早到买票，赶早不赶晚。',food:'晚餐沧州火锅鸡，口重的加一份羊肠汤。',sights:'傍晚南川老街 · 运河夜景；铁狮子离市区较远（可选）。',tags:['班车'],segs:[14]},
+  {d:16,type:'move',stars:2,title:'沧州 → 天津',route:'沧州→天津直达班车（破例段②）',traffic:'6:00-12:00每20分钟一班（天津客运西站口径），约2h，上午随到随走。',food:'傍晚抵津直奔南市食品街/辽宁路小吃；桂发祥麻花当宵夜。',sights:'晚上海河夜景，休整日的前奏。',tags:['班车'],segs:[15]},
+  {d:17,type:'play',stars:0,title:'天津 · 休整日',route:'天津市内休整',traffic:'市内自由活动，地铁+公交。',food:'早上煎饼馃子+嘎巴菜，下午面茶、卷圈；离津前买点栗子、麻花当手信。',sights:'五大道溜达 · 古文化街 · 瓷房子（可选）· 下午名流茶馆听段相声 · 天津之眼夜景（需预约，可选）。',tags:['地铁'],city:'天津'},
+  {d:18,type:'both',stars:2,title:'天津 → 北京',route:'公交至武清→武清专1路跨省公交→次渠地铁站进城',traffic:'约4h，全程约12元；武清专1路2026年4月开通，最后一段跨省正式打通。',food:'午餐武清市区解决；晚餐到北京吃炸酱面或卤煮火烧收尾。',sights:'抵京后自行安排；到得早可以去前门/什刹海溜达。',tags:['公交','地铁'],segs:[16]}
+];
+
+var CHECKLIST = [
+  '身份证（住宿全靠它）',
+  '200元现金零钱（县乡公交常只收现金）',
+  '充电宝 + 充电线（一天在车上10小时+，导航耗电快）',
+  '折叠伞（秋雨不多，备着就行）',
+  '防晒帽 / 防晒霜（秋季晴天紫外线也不弱）',
+  '干粮 + 水壶（硬路段中途没有补给点）',
+  '小药包：创可贴、肠胃药、消炎药、感冒药',
+  '一双走烂了的舒适运动鞋',
+  '下载高德/百度离线地图（县域段信号不稳）',
+  '挡风外套/薄羽绒（10月河北段早晚仅5-10℃）'
+];
+
+/* ============ 地图 ============ */
+var map = L.map('map', {scrollWheelZoom:true});
+var amapLayer = L.tileLayer('https://webrd0{s}.is.autonavi.com/appmaptile?lang=zh_cn&size=1&scale=1&style=8&x={x}&y={y}&z={z}', {
+  subdomains:['1','2','3','4'], maxZoom:18, attribution:'&copy; 高德地图'
+});
+var osmLayer = L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
+  maxZoom:18, attribution:'&copy; OpenStreetMap contributors'
+});
+amapLayer.addTo(map);
+L.control.layers({'高德底图':amapLayer, 'OpenStreetMap':osmLayer}, null, {position:'topright'}).addTo(map);
+
+// 城际线段（按难度着色）
+SEGMENTS.forEach(function(s, i){
+  var a = cityByName[s.from], b = cityByName[s.to];
+  var opts = {color:COLORS[s.level], weight:4, opacity:.85};
+  if (s.ferry) { opts.dashArray = '8,7'; opts.color = '#4a7fb5'; }
+  var line = L.polyline([[a.lat,a.lng],[b.lat,b.lng]], opts).addTo(map);
+  line.bindTooltip(s.label, {sticky:true});
+  s.line = line;
+});
+
+// 城市标记
+CITIES.forEach(function(c){
+  var cls = 'city-pin big';
+  var label = c.day;
+  if (c.pass) { cls = 'city-pin small'; label = ''; }
+  else if (c.start) { cls += ' start'; }
+  else if (c.end) { cls += ' end'; label = '终'; }
+  var icon = L.divIcon({className:'', html:'<div class="'+cls+'">'+label+'</div>', iconSize: c.pass?[14,14]:[28,28], iconAnchor: c.pass?[7,7]:[14,14]});
+  var nightsTxt = c.nights ? '住'+c.nights+'晚' : (c.pass ? '途经' : (c.start ? '出发' : (c.end ? '抵达' : '半日停留')));
+  var metroTxt = c.metro ? ('地铁：有' + (c.metroNote ? '（'+c.metroNote+'）' : '')) : '地铁：无（市内公交）';
+  var m = L.marker([c.lat,c.lng], {icon:icon}).addTo(map);
+  m.bindPopup('<b>'+c.name+'</b> · D'+c.day+' · '+nightsTxt+'<br><span style="font-size:12px;color:#666;">安排：'+c.play+'<br>'+metroTxt+'</span>');
+  c.marker = m;
+});
+
+var allPts = CITIES.map(function(c){ return [c.lat,c.lng]; });
+map.fitBounds(L.latLngBounds(allPts).pad(0.08));
+
+function focusDay(day){
+  var mapEl = document.getElementById('map');
+  mapEl.scrollIntoView({behavior:'smooth', block:'center'});
+  setTimeout(function(){
+    if (day.segs && day.segs.length) {
+      var pts = [];
+      day.segs.forEach(function(idx){
+        var s = SEGMENTS[idx];
+        var a = cityByName[s.from], b = cityByName[s.to];
+        pts.push([a.lat,a.lng],[b.lat,b.lng]);
+      });
+      map.flyToBounds(L.latLngBounds(pts).pad(0.5), {maxZoom:11, duration:.8});
+    } else if (day.city) {
+      var c = cityByName[day.city];
+      map.flyTo([c.lat,c.lng], 12, {duration:.8});
+      c.marker.openPopup();
+    }
+  }, 350);
+}
+
+/* ============ 逐日卡片 ============ */
+var TYPE_LABEL = {play:'休整/游玩日', move:'纯移动日', both:'移动+玩'};
+var grid = document.getElementById('daysGrid');
+DAYS.forEach(function(day){
+  var stars = day.stars ? '难度 ' + '★'.repeat(day.stars) + '☆'.repeat(3-day.stars) : '难度 —';
+  var html = '<div class="dc-top"><span class="dc-day">D'+day.d+'</span>' +
+    '<span class="dc-type">'+TYPE_LABEL[day.type]+'</span>' +
+    '<span class="dc-stars">'+stars+'</span></div>' +
+    '<div class="dc-title">'+day.title+'</div>';
+  if (day.route) html += '<div class="dc-line"><span class="k">路线：</span>'+day.route+'</div>';
+  if (day.traffic) html += '<div class="dc-line"><span class="k">交通：</span>'+day.traffic+'</div>';
+  if (day.food) html += '<div class="dc-line"><span class="k">美食：</span>'+day.food+'</div>';
+  if (day.sights) html += '<div class="dc-line"><span class="k">景点：</span>'+day.sights+'</div>';
+  html += '<div class="dc-tags">' + day.tags.map(function(t){return '<span class="tag">'+t+'</span>';}).join('') + '</div>';
+  var el = document.createElement('div');
+  el.className = 'day-card t-' + day.type;
+  el.innerHTML = html;
+  el.addEventListener('click', function(){ focusDay(day); });
+  grid.appendChild(el);
+});
+
+// 筛选
+var filterBtns = document.querySelectorAll('.filters button');
+filterBtns.forEach(function(btn){
+  btn.addEventListener('click', function(){
+    filterBtns.forEach(function(b){ b.classList.remove('on'); });
+    btn.classList.add('on');
+    var f = btn.getAttribute('data-f');
+    var cards = grid.querySelectorAll('.day-card');
+    DAYS.forEach(function(day, i){
+      var show = (f === 'all') ||
+                 (f === 'play' && (day.type === 'play' || day.type === 'both')) ||
+                 (f === 'move' && day.type === 'move');
+      cards[i].style.display = show ? '' : 'none';
+    });
+  });
+});
+
+/* ============ 行前清单 ============ */
+var ckList = document.getElementById('ckList');
+var ckProgress = document.getElementById('ckProgress');
+CHECKLIST.forEach(function(item, idx){
+  var row = document.createElement('label');
+  row.className = 'ck-item';
+  var cb = document.createElement('input');
+  cb.type = 'checkbox';
+  cb.addEventListener('change', updateProgress);
+  var span = document.createElement('span');
+  span.textContent = item;
+  row.appendChild(cb); row.appendChild(span);
+  ckList.appendChild(row);
+});
+function updateProgress(){
+  var n = ckList.querySelectorAll('input:checked').length;
+  ckProgress.textContent = '已完成 ' + n + ' / ' + CHECKLIST.length;
+}
+</script>
+<script>
+if ('serviceWorker' in navigator) {
+  window.addEventListener('load', function(){
+    navigator.serviceWorker.register('sw.js').catch(function(err){ console.warn('SW注册失败：', err); });
+  });
+}
+</script>
+</body>
+</html>
