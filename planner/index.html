@@ -1,0 +1,422 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>慢巴 BusSlow · 城际公交+地铁慢行规划器</title>
+<link rel="stylesheet" href="vendor/leaflet.css">
+<meta name="theme-color" content="#1f4d3a">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="apple-mobile-web-app-title" content="慢巴">
+<style>
+  :root{
+    --bg:#f7f5f0; --card:#ffffff; --ink:#2b2b2b; --sub:#6b6b6b; --line:#e5e0d5;
+    --green:#2f9e6e; --amber:#e0a13c; --red:#d9534f; --blue:#4a7fb5;
+    --deep:#1f4d3a; --chip:#f0ede4;
+  }
+  *{margin:0;padding:0;box-sizing:border-box;}
+  html{scroll-behavior:smooth;}
+  body{background:var(--bg);color:var(--ink);font-family:"PingFang SC","Hiragino Sans GB","Microsoft YaHei",sans-serif;line-height:1.6;}
+  .wrap{max-width:1080px;margin:0 auto;padding:0 20px;}
+
+  header{background:var(--deep);color:#fff;padding:32px 0 26px;}
+  header h1{font-size:24px;font-weight:700;letter-spacing:1px;}
+  header h1 .en{font-size:14px;font-weight:400;opacity:.7;margin-left:8px;letter-spacing:2px;}
+  header .sub{margin-top:8px;font-size:14px;opacity:.85;}
+  .chips{display:flex;flex-wrap:wrap;gap:10px;margin-top:16px;}
+  .chip{background:rgba(255,255,255,.12);border:1px solid rgba(255,255,255,.25);border-radius:8px;padding:5px 12px;font-size:13px;}
+  .chip b{font-size:15px;margin-right:4px;}
+
+  section{padding:26px 0 6px;}
+  h2{font-size:19px;margin-bottom:6px;}
+  h2 .en{font-size:12px;color:var(--sub);font-weight:400;margin-left:8px;letter-spacing:2px;}
+  .lead{color:var(--sub);font-size:13px;margin-bottom:14px;max-width:860px;}
+
+  .panel{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:18px;margin-bottom:16px;}
+
+  .plan-row{display:flex;flex-wrap:wrap;gap:10px;align-items:center;}
+  .plan-row label{font-size:13px;color:var(--sub);}
+  select#fromCity, select#toCity{font-size:15px;padding:8px 12px;border:1px solid var(--line);border-radius:8px;background:var(--chip);color:var(--ink);min-width:110px;}
+  .swap{border:1px solid var(--line);background:var(--card);border-radius:8px;padding:8px 10px;cursor:pointer;font-size:14px;}
+  .paces{display:flex;gap:8px;margin-left:auto;}
+  .paces button{border:1px solid var(--line);background:var(--card);border-radius:20px;padding:6px 14px;font-size:13px;color:var(--sub);cursor:pointer;}
+  .paces button.on{background:var(--deep);border-color:var(--deep);color:#fff;}
+  #goBtn{margin-top:14px;width:100%;background:var(--deep);color:#fff;border:none;border-radius:10px;padding:12px;font-size:16px;cursor:pointer;letter-spacing:2px;}
+  #goBtn:hover{opacity:.92;}
+
+  .sum{display:flex;flex-wrap:wrap;gap:10px;margin-bottom:14px;}
+  .sum .chip{background:var(--chip);color:var(--ink);border:1px solid var(--line);}
+  .sum .chip b{color:var(--deep);}
+
+  #map{height:460px;border-radius:12px;border:1px solid var(--line);background:#e8e6df;}
+  .legend{display:flex;flex-wrap:wrap;gap:14px;margin-top:10px;font-size:12px;color:var(--sub);align-items:center;}
+  .legend .sw{display:inline-block;width:22px;height:4px;border-radius:2px;vertical-align:middle;margin-right:6px;}
+
+  .warn{background:#fdf6ec;border:1px solid #f0dcc0;border-radius:10px;padding:12px 16px;margin:14px 0;font-size:13px;}
+  .warn b{color:#a06a1c;}
+  .warn ul{margin:6px 0 0 18px;}
+
+  .days{display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:12px;}
+  .day-card{background:var(--card);border:1px solid var(--line);border-left:4px solid var(--sub);border-radius:10px;padding:14px 16px;}
+  .day-card.t-rest{border-left-color:var(--green);}
+  .day-card.t-move{border-left-color:var(--red);}
+  .day-card.t-both{border-left-color:var(--blue);}
+  .dc-top{display:flex;align-items:center;gap:8px;font-size:12px;margin-bottom:6px;}
+  .dc-day{font-weight:700;font-size:14px;}
+  .dc-type{border-radius:4px;padding:1px 8px;color:#fff;}
+  .t-rest .dc-type{background:var(--green);}
+  .t-move .dc-type{background:var(--red);}
+  .t-both .dc-type{background:var(--blue);}
+  .dc-hours{margin-left:auto;color:var(--sub);}
+  .dc-title{font-size:16px;font-weight:600;margin-bottom:4px;}
+  .dc-line{font-size:13px;color:var(--ink);margin-top:3px;}
+  .dc-line .k{color:var(--sub);}
+
+  table{width:100%;border-collapse:collapse;font-size:14px;background:var(--card);border-radius:10px;overflow:hidden;}
+  th,td{text-align:left;padding:9px 14px;border-bottom:1px solid var(--line);}
+  th{background:var(--chip);font-size:13px;color:var(--sub);}
+  tr:last-child td{border-bottom:none;font-weight:700;background:#fbf9f3;}
+
+  footer{margin-top:36px;background:var(--card);border-top:1px solid var(--line);padding:22px 0 30px;font-size:12px;color:var(--sub);}
+  footer .src{margin-top:8px;line-height:1.9;}
+
+  .city-pin{display:flex;align-items:center;justify-content:center;border-radius:50%;background:#333;color:#fff;border:2px solid #fff;font-weight:700;font-size:11px;box-shadow:0 1px 3px rgba(0,0,0,.35);}
+  @media (max-width:640px){
+    #map{height:360px;}
+    header h1{font-size:20px;}
+    .paces{margin-left:0;}
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="wrap">
+    <h1>慢巴<span class="en">BUSSLOW</span></h1>
+    <div class="sub">城际公交+地铁慢行规划器 · 不坐高铁，一座城一座城地走 · 选起点终点，生成你的逐日手册</div>
+    <div class="chips">
+      <span class="chip"><b>23</b>座城市</span>
+      <span class="chip"><b>23</b>条走廊（逐条核实标注）</span>
+      <span class="chip"><b>3</b>档节奏</span>
+      <span class="chip">离线可用 · 可装到手机</span>
+    </div>
+  </div>
+</header>
+
+<main class="wrap">
+
+<section>
+  <div class="panel">
+    <div class="plan-row">
+      <label>从</label><select id="fromCity"></select>
+      <button class="swap" id="swapBtn" title="交换起终点">⇄</button>
+      <label>到</label><select id="toCity"></select>
+      <div class="paces">
+        <button data-p="relax">松弛</button>
+        <button data-p="bal" class="on">均衡</button>
+        <button data-p="hard">赶路</button>
+      </div>
+    </div>
+    <button id="goBtn">生成我的慢行手册</button>
+    <p class="lead" style="margin:12px 0 0;">松弛＝每天≤4小时车程、连走2天就休整；均衡＝≤6小时、连走3天休整；赶路＝≤8小时、连走4天休整。路线只在"已核实走廊图"上搜索，保证每一段都真实存在；查不到连通就说明 v1 走廊库还没覆盖，宁可没有也不编。</p>
+  </div>
+</section>
+
+<section id="result" style="display:none;">
+  <h2 id="resTitle">你的慢行手册<span class="en">YOUR PLAN</span></h2>
+  <div class="sum" id="sumChips"></div>
+  <div id="map"></div>
+  <div class="legend">
+    <span><span class="sw" style="background:var(--green)"></span>轻松段</span>
+    <span><span class="sw" style="background:var(--amber)"></span>中等段</span>
+    <span><span class="sw" style="background:var(--red)"></span>硬路段/破例段</span>
+    <span>圆点序号＝第几天到达</span>
+  </div>
+  <div id="warnBox"></div>
+  <div class="days" id="daysGrid" style="margin-top:14px;"></div>
+  <h2 style="margin-top:22px;">预算估算<span class="en">BUDGET</span></h2>
+  <table id="budgetTable"></table>
+</section>
+
+</main>
+
+<footer>
+  <div class="wrap">
+    <div>慢巴 BusSlow v1 · 走廊库更新于 2026-08-20 · 华东+华北 23 城。所有走廊标注信心等级与来源；标"需复核"的段临行前务必用高德/百度实时公交或车站电话确认。规划器只做事实层搜索，不编路线。</div>
+    <div class="src">
+      核心来源：交通运输部《京津首条跨城公交开跑》· 齐鲁网（济德/德衡城际）· 济南市政府（济泰便民快巴 2026-05，K919 已停运）· 济宁市政府（B1/C605、曲阜班车公示）· 山东交运（K920 济茌）· 北京本地宝（805 快）· 人民网（京冀跨市域公交、廊坊—武清定制公交）· 天津客运西站时刻表 · 新华网（涿州 838）· 中青在线/解放日报（2021 沪京公交穿越）等。
+    </div>
+  </div>
+</footer>
+
+<script src="vendor/leaflet.min.js"></script>
+<script>
+/* ================= 走廊图数据 ================= */
+/* CITY: lat/lng 坐标；food 美食一句话；sights 景点一句话；rest 休整价值 0-2 */
+var CITY = {
+  '上海':{lat:31.2304,lng:121.4737,rest:0,food:'生煎/葱油拌面/小笼，出发前吃顿好的',sights:'出发城 · 外滩/武康路随意溜达'},
+  '苏州':{lat:31.2989,lng:120.5853,rest:1,food:'苏帮菜偏甜：松鼠鳜鱼，平江路小吃随走随吃',sights:'平江路 · 山塘街夜景 · 拙政园/苏博需预约'},
+  '无锡':{lat:31.4912,lng:120.3119,rest:0,food:'无锡小笼是甜口的，三凤桥酱排骨',sights:'南长街 · 清名桥古运河夜景'},
+  '常州':{lat:31.8106,lng:119.9741,rest:0,food:'常州大麻糕，换乘午餐刚好',sights:'换乘城 · 有时间逛红梅公园'},
+  '镇江':{lat:32.1877,lng:119.4250,rest:0,food:'锅盖面+肴肉，镇江三怪吃法',sights:'西津渡老街 · 金山寺'},
+  '扬州':{lat:32.3947,lng:119.4128,rest:1,food:'早茶：三丁包/大煮干丝/蟹黄汤包，老店即可',sights:'瘦西湖需半天 · 东关街夜逛'},
+  '南京':{lat:32.0603,lng:118.7969,rest:1,food:'盐水鸭/鸭血粉丝汤',sights:'夫子庙秦淮河夜景 · 玄武湖免费'},
+  '滁州':{lat:32.3016,lng:118.3162,rest:0,food:'没有招牌大菜，简单吃早点睡',sights:'回血小城 · 琅琊山可选'},
+  '蚌埠':{lat:32.9166,lng:117.3884,rest:0,food:'小龙虾+烧烤，皖北小吃城',sights:'无著名景点 · 早休息'},
+  '宿州市':{lat:33.6463,lng:116.9641,rest:0,food:'符离集烧鸡是招牌',sights:'途经城 · 早休息'},
+  '徐州':{lat:34.2615,lng:117.1848,rest:2,food:'早上饣它汤，中午地锅鸡，晚上烧烤',sights:'云龙湖环湖免费 · 汉兵马俑博物馆可选'},
+  '枣庄':{lat:34.8107,lng:117.3236,rest:0,food:'辣子鸡+菜煎饼',sights:'台儿庄古城离市区1h，需半天，可选'},
+  '济宁':{lat:35.4146,lng:116.5872,rest:0,food:'甏肉干饭，一碗管饱',sights:'运河边走走 · 可加曲阜三孔半天'},
+  '曲阜':{lat:35.5967,lng:116.9861,rest:1,food:'孔府宴是正式场合，日常吃曲阜煎饼',sights:'三孔（孔庙/孔府/孔林）世界遗产'},
+  '泰安':{lat:36.1950,lng:117.0880,rest:1,food:'泰安三美白菜豆腐水，小葱蘸酱热豆腐',sights:'泰山 · 十八盘登顶看日出需整天'},
+  '济南':{lat:36.6512,lng:117.1201,rest:2,food:'甜沫+油旋早上吃，把子肉中午吃，九转大肠晚上吃',sights:'黑虎泉打水免费 · 大明湖免费 · 趵突泉40元可选'},
+  '德州':{lat:37.4341,lng:116.3575,rest:0,food:'德州扒鸡原产地，路边店买现做的',sights:'董子公园免费 · 老城区溜达'},
+  '衡水':{lat:37.7390,lng:115.6700,rest:0,food:'晚餐简单，尝一口衡水老白干',sights:'衡水湖边溜达'},
+  '沧州':{lat:38.3037,lng:116.8388,rest:0,food:'火锅鸡，口重加羊肠汤',sights:'南川老街 · 运河夜景 · 铁狮子较远'},
+  '天津':{lat:39.3434,lng:117.3616,rest:2,food:'煎饼馃子+嘎巴菜早上吃，面茶卷圈下午吃，栗子麻花当手信',sights:'五大道 · 古文化街 · 名流茶馆相声 · 天津之眼夜景'},
+  '廊坊':{lat:39.5388,lng:116.6838,rest:0,food:'香河肉饼，皮薄肉汁多',sights:'中转城 · 胜芳古镇较远可选'},
+  '涿州':{lat:39.4853,lng:115.9744,rest:0,food:'小城饭馆简单吃',sights:'中转节点 · 早休息'},
+  '北京':{lat:39.9042,lng:116.4074,rest:0,food:'炸酱面/卤煮火烧收尾',sights:'抵达后自行安排 · 前门/什刹海'}
+};
+
+/* EDGES: mode=bus公交/metro地铁轨道/ferry轮渡/coach班车破例；level 1轻松2中等3硬；hours；cost元(估)；conf 信心；note 走法说明 */
+var EDGES = [
+  {a:'上海',b:'苏州',mode:'metro',level:1,hours:2,cost:10,conf:'高',note:'地铁11号线→花桥→苏州11号线，无缝跨省'},
+  {a:'苏州',b:'无锡',mode:'bus',level:2,hours:3,cost:15,conf:'高',note:'G312方向公交接力'},
+  {a:'无锡',b:'常州',mode:'bus',level:2,hours:2.5,cost:10,conf:'高',note:'公交接力'},
+  {a:'常州',b:'镇江',mode:'bus',level:2,hours:3,cost:12,conf:'高',note:'公交接力'},
+  {a:'镇江',b:'扬州',mode:'ferry',level:1,hours:1,cost:5,conf:'高',note:'轮渡过长江'},
+  {a:'扬州',b:'南京',mode:'bus',level:2,hours:4,cost:20,conf:'高',note:'经仪征公交接力'},
+  {a:'南京',b:'滁州',mode:'metro',level:2,hours:3.5,cost:12,conf:'高',note:'公交至汊河+宁滁城际S4'},
+  {a:'滁州',b:'蚌埠',mode:'bus',level:3,hours:6,cost:25,conf:'高',note:'G104经明光接力，班次稀疏'},
+  {a:'蚌埠',b:'徐州',mode:'bus',level:3,hours:6,cost:30,conf:'高',note:'固镇→宿州仅7:30/8:40/14:30三班；萧县→徐州901路30-60分钟一班'},
+  {a:'徐州',b:'枣庄',mode:'bus',level:3,hours:6,cost:25,conf:'高',note:'铜山→滕州接力'},
+  {a:'枣庄',b:'济宁',mode:'bus',level:2,hours:5.5,cost:25,conf:'高',note:'经邹城、兖州接力'},
+  {a:'济宁',b:'济南',mode:'bus',level:3,hours:7,cost:30,conf:'高',note:'汶上→东平→长清，全天'},
+  {a:'济南',b:'德州',mode:'bus',level:2,hours:2.5,cost:40,conf:'高',note:'济德城际公交，30分钟一班'},
+  {a:'德州',b:'衡水',mode:'bus',level:2,hours:2.5,cost:25,conf:'高',note:'德衡城际K206直达，全程48站'},
+  {a:'衡水',b:'沧州',mode:'coach',level:3,hours:2.75,cost:60,conf:'高',note:'直达班车·破例段（无公交化走廊，上午班次多）'},
+  {a:'沧州',b:'天津',mode:'coach',level:3,hours:2,cost:50,conf:'高',note:'直达班车·破例段（6:00-12:00每20分钟一班）'},
+  {a:'天津',b:'北京',mode:'bus',level:2,hours:4,cost:12,conf:'高',note:'公交至武清→武清专1路跨省→次渠地铁进城'},
+  {a:'北京',b:'涿州',mode:'bus',level:2,hours:2,cost:8,conf:'高',note:'838路跨省公交'},
+  {a:'北京',b:'廊坊',mode:'bus',level:2,hours:1.5,cost:10,conf:'高',note:'805快/805路跨省，阶梯票价'},
+  {a:'廊坊',b:'天津',mode:'bus',level:2,hours:1.5,cost:5,conf:'中高',note:'廊坊—武清定制公交24班/日；进天津主城需在武清换乘'},
+  {a:'济南',b:'泰安',mode:'bus',level:2,hours:1.5,cost:25,conf:'高',note:'济泰便民快巴45分钟一班（2026-05开通；K919已停运）'},
+  {a:'泰安',b:'曲阜',mode:'coach',level:3,hours:1.5,cost:20,conf:'中',note:'泰曲定制客运8:00-16:30；曲阜班车仅9:40/14:40 · 需复核'},
+  {a:'曲阜',b:'济宁',mode:'bus',level:1,hours:1,cost:4,conf:'高',note:'济宁城际B1/C605'}
+];
+
+var PACES = {
+  relax:{cap:4, maxConsec:2, label:'松弛'},
+  bal:{cap:6, maxConsec:3, label:'均衡'},
+  hard:{cap:8, maxConsec:4, label:'赶路'}
+};
+var COLORS = {1:'#2f9e6e', 2:'#e0a13c', 3:'#d9534f'};
+
+/* ================= 规划算法 ================= */
+function findPath(from, to){
+  var adj = {};
+  EDGES.forEach(function(e, i){
+    (adj[e.a] = adj[e.a] || []).push({to:e.b, i:i});
+    (adj[e.b] = adj[e.b] || []).push({to:e.a, i:i});
+  });
+  var dist = {}, prev = {}, done = {};
+  Object.keys(CITY).forEach(function(c){ dist[c] = Infinity; });
+  dist[from] = 0;
+  for(;;){
+    var u = null, best = Infinity;
+    Object.keys(dist).forEach(function(c){
+      if(!done[c] && dist[c] < best){ best = dist[c]; u = c; }
+    });
+    if (u === null || u === to) break;
+    done[u] = true;
+    (adj[u] || []).forEach(function(nb){
+      var e = EDGES[nb.i];
+      var w = e.hours + (e.level - 1) * 1.0 + (e.mode === 'coach' ? 0.5 : 0) + (e.conf !== '高' ? 1.0 : 0) + 0.75;
+      if (dist[u] + w < dist[nb.to]) { dist[nb.to] = dist[u] + w; prev[nb.to] = {city:u, edge:nb.i}; }
+    });
+  }
+  if (dist[to] === Infinity) return null;
+  var steps = [], c = to;
+  while (c !== from) { var p = prev[c]; steps.unshift({ei:p.edge, from:p.city, to:c}); c = p.city; }
+  return steps;
+}
+
+function buildDays(path, pace){
+  var P = PACES[pace];
+  // 按每日车程上限拆移动日
+  var moveDays = [], cur = {steps:[], hours:0};
+  path.forEach(function(st){
+    var e = EDGES[st.ei];
+    if (cur.steps.length && cur.hours + e.hours > P.cap) { moveDays.push(cur); cur = {steps:[], hours:0}; }
+    cur.steps.push(st); cur.hours += e.hours;
+  });
+  if (cur.steps.length) moveDays.push(cur);
+
+  // 生成日对象 + 插入休整日
+  var days = [], consec = 0;
+  moveDays.forEach(function(md, idx){
+    var chain = [md.steps[0].from];
+    md.steps.forEach(function(st){ chain.push(st.to); });
+    var overnight = chain[chain.length - 1];
+    var type = md.hours <= 3.5 ? 'both' : 'move';
+    days.push({type:type, hours:md.hours, chain:chain, steps:md.steps, city:overnight});
+    consec++;
+    var isLast = idx === moveDays.length - 1;
+    if (!isLast) {
+      var restVal = CITY[overnight].rest;
+      if (consec >= P.maxConsec || (restVal >= 2 && consec >= 2 && pace !== 'hard')) {
+        days.push({type:'rest', hours:0, chain:[overnight], steps:[], city:overnight});
+        consec = 0;
+      }
+    }
+  });
+  return days;
+}
+
+/* ================= 渲染 ================= */
+var map = null, layerGroup = null;
+function initMap(){
+  map = L.map('map', {scrollWheelZoom:true});
+  L.tileLayer('https://webrd0{s}.is.autonavi.com/appmaptile?lang=zh_cn&size=1&scale=1&style=8&x={x}&y={y}&z={z}', {
+    subdomains:['1','2','3','4'], maxZoom:18, attribution:'&copy; 高德地图'
+  }).addTo(map);
+  layerGroup = L.layerGroup().addTo(map);
+}
+
+var curPace = 'bal';
+
+function render(){
+  var from = document.getElementById('fromCity').value;
+  var to = document.getElementById('toCity').value;
+  if (from === to) { alert('起点和终点不能是同一座城'); return; }
+  var path = findPath(from, to);
+  var box = document.getElementById('result');
+  if (!path) {
+    box.style.display = 'block';
+    document.getElementById('sumChips').innerHTML = '';
+    document.getElementById('daysGrid').innerHTML = '';
+    document.getElementById('warnBox').innerHTML = '';
+    document.getElementById('budgetTable').innerHTML = '';
+    document.getElementById('resTitle').innerHTML = '这两座城暂时连不上<span class="en">NO ROUTE</span>';
+    document.getElementById('sumChips').innerHTML = '<span class="chip">v1 走廊库还没覆盖这对起终点——规划器只在已核实的走廊上搜索，宁可没有也不编。试试把起终点换到沪京主线或山东/京津冀支线上。</span>';
+    return;
+  }
+  var days = buildDays(path, curPace);
+  var nights = days.length - 1;
+
+  // 汇总
+  var transport = 0, hardCount = 0;
+  path.forEach(function(st){ var e = EDGES[st.ei]; transport += e.cost; if (e.level === 3 || e.conf !== '高') hardCount++; });
+  var cityCount = {};
+  days.forEach(function(d){ cityCount[d.city] = 1; });
+  document.getElementById('resTitle').innerHTML = from + ' → ' + to + ' · ' + PACES[curPace].label + '版<span class="en">YOUR PLAN</span>';
+  document.getElementById('sumChips').innerHTML =
+    '<span class="chip"><b>' + days.length + '</b>天</span>' +
+    '<span class="chip"><b>' + nights + '</b>晚</span>' +
+    '<span class="chip"><b>' + Object.keys(cityCount).length + '</b>座城</span>' +
+    '<span class="chip">车费≈<b>' + transport + '</b>元</span>' +
+    '<span class="chip">总预算≈<b>' + (Math.round((nights*170 + days.length*100 + transport + 500)/100)*100) + '</b>元</span>' +
+    (hardCount ? '<span class="chip"><b>' + hardCount + '</b>段硬/需复核</span>' : '');
+
+  // 预警
+  var warns = [];
+  path.forEach(function(st){
+    var e = EDGES[st.ei];
+    if (e.level === 3 || e.conf !== '高') warns.push('<li><b>' + st.from + '—' + st.to + '：</b>' + e.note + (e.conf !== '高' ? '（信心' + e.conf + '，临行前复核）' : '') + '</li>');
+  });
+  document.getElementById('warnBox').innerHTML = warns.length
+    ? '<div class="warn"><b>这段路的硬路段/需复核段：</b><ul>' + warns.join('') + '</ul>共同对策：前一晚用高德实时公交把次日每段查好再睡；班车段早到站买票；备干粮和水。</div>'
+    : '';
+
+  // 卡片
+  var TYPE_LABEL = {rest:'休整日', move:'移动日', both:'轻移动+玩'};
+  var html = '';
+  days.forEach(function(d, i){
+    var cls = 'day-card t-' + d.type;
+    var h = '<div class="dc-top"><span class="dc-day">D' + (i+1) + '</span><span class="dc-type">' + TYPE_LABEL[d.type] + '</span><span class="dc-hours">' + (d.hours ? '车程≈' + d.hours + 'h' : '不赶路') + '</span></div>';
+    if (d.type === 'rest') {
+      h += '<div class="dc-title">' + d.city + ' · 休整日</div>';
+      h += '<div class="dc-line"><span class="k">路线：</span>' + d.city + '市内自由活动</div>';
+      h += '<div class="dc-line"><span class="k">交通：</span>市内公交/地铁随意，顺便洗衣补给</div>';
+      h += '<div class="dc-line"><span class="k">美食：</span>' + CITY[d.city].food + '</div>';
+      h += '<div class="dc-line"><span class="k">景点：</span>' + CITY[d.city].sights + '</div>';
+    } else {
+      h += '<div class="dc-title">' + d.chain.join(' → ') + '</div>';
+      h += '<div class="dc-line"><span class="k">路线：</span>' + d.steps.map(function(st){ return st.from + '→' + st.to; }).join('，') + '</div>';
+      h += '<div class="dc-line"><span class="k">交通：</span>' + d.steps.map(function(st){ return EDGES[st.ei].note; }).join('；') + '</div>';
+      h += '<div class="dc-line"><span class="k">美食：</span>到' + d.city + '吃：' + CITY[d.city].food + '</div>';
+      h += '<div class="dc-line"><span class="k">景点：</span>傍晚/次日早：' + CITY[d.city].sights + '</div>';
+    }
+    html += '<div class="' + cls + '">' + h + '</div>';
+  });
+  document.getElementById('daysGrid').innerHTML = html;
+
+  // 预算表
+  var lodging = nights * 170, food = days.length * 100;
+  document.getElementById('budgetTable').innerHTML =
+    '<tr><th>项目</th><th>估算</th></tr>' +
+    '<tr><td>城际+市内车费</td><td>≈' + transport + '元</td></tr>' +
+    '<tr><td>住宿 × ' + nights + '晚</td><td>' + (nights*140) + '-' + (nights*200) + '元</td></tr>' +
+    '<tr><td>餐饮 × ' + days.length + '天</td><td>≈' + food + '元</td></tr>' +
+    '<tr><td>备用金</td><td>500元</td></tr>' +
+    '<tr><td>合计</td><td>约' + (nights*140 + food + transport + 500) + '-' + (nights*200 + food + transport + 500) + '元</td></tr>';
+
+  // 地图
+  layerGroup.clearLayers();
+  var pts = [];
+  path.forEach(function(st){
+    var e = EDGES[st.ei], a = CITY[st.from], b = CITY[st.to];
+    L.polyline([[a.lat,a.lng],[b.lat,b.lng]], {color:COLORS[e.level], weight:4, opacity:.85})
+      .bindTooltip(st.from + '—' + st.to + ' · ' + e.note, {sticky:true}).addTo(layerGroup);
+    pts.push([a.lat,a.lng],[b.lat,b.lng]);
+  });
+  var dayNo = {};
+  days.forEach(function(d, i){ if (!dayNo[d.city]) dayNo[d.city] = i + 1; });
+  Object.keys(dayNo).forEach(function(c){
+    var cc = CITY[c];
+    var icon = L.divIcon({className:'', html:'<div class="city-pin" style="width:26px;height:26px;">' + dayNo[c] + '</div>', iconSize:[26,26], iconAnchor:[13,13]});
+    L.marker([cc.lat, cc.lng], {icon:icon}).bindPopup('<b>' + c + '</b> · D' + dayNo[c] + '<br><span style="font-size:12px;color:#666;">吃：' + cc.food + '<br>玩：' + cc.sights + '</span>').addTo(layerGroup);
+  });
+  map.fitBounds(L.latLngBounds(pts).pad(0.12));
+  box.style.display = 'block';
+  box.scrollIntoView({behavior:'smooth', block:'start'});
+}
+
+/* ================= 初始化 ================= */
+(function(){
+  var names = Object.keys(CITY);
+  var f = document.getElementById('fromCity'), t = document.getElementById('toCity');
+  names.forEach(function(n){
+    f.appendChild(new Option(n, n));
+    t.appendChild(new Option(n, n));
+  });
+  f.value = '上海'; t.value = '北京';
+  document.getElementById('swapBtn').addEventListener('click', function(){
+    var a = f.value; f.value = t.value; t.value = a; render();
+  });
+  document.querySelectorAll('.paces button').forEach(function(btn){
+    btn.addEventListener('click', function(){
+      document.querySelectorAll('.paces button').forEach(function(b){ b.classList.remove('on'); });
+      btn.classList.add('on');
+      curPace = btn.getAttribute('data-p');
+      render();
+    });
+  });
+  document.getElementById('goBtn').addEventListener('click', render);
+  initMap();
+  render();
+})();
+</script>
+<script>
+if ('serviceWorker' in navigator) {
+  window.addEventListener('load', function(){
+    navigator.serviceWorker.register('sw.js').catch(function(err){ console.warn('SW注册失败：', err); });
+  });
+}
+</script>
+</body>
+</html>
