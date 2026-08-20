@@ -1,6 +1,6 @@
 /* 慢巴 BusSlow · Service Worker
    策略：应用文件联网优先、离线兜底（保证更新即时可见）；地图瓦片缓存优先（越用越离线） */
-var SHELL_CACHE = 'manba-shell-v2';
+var SHELL_CACHE = 'manba-shell-v3';
 var TILE_CACHE = 'manba-tiles-v1';
 var SHELL = [
   './',
