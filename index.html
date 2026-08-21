@@ -1,0 +1,1089 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>慢巴 BusSlow · 城际公交+地铁慢行规划器</title>
+<link rel="stylesheet" href="vendor/leaflet.css">
+<meta name="theme-color" content="#1f4d3a">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="apple-mobile-web-app-title" content="慢巴">
+<style>
+  :root{
+    --bg:#f7f5f0; --card:#ffffff; --ink:#2b2b2b; --sub:#6b6b6b; --line:#e5e0d5;
+    --green:#2f9e6e; --amber:#e0a13c; --red:#d9534f; --blue:#4a7fb5;
+    --deep:#1f4d3a; --chip:#f0ede4;
+  }
+  *{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent;}
+  html{scroll-behavior:smooth;}
+  body{background:var(--bg);color:var(--ink);font-family:"PingFang SC","Hiragino Sans GB","Microsoft YaHei",sans-serif;line-height:1.6;}
+  button{font-family:inherit;cursor:pointer;}
+  .app{max-width:560px;margin:0 auto;min-height:100vh;display:flex;flex-direction:column;}
+  .page{display:none;flex:1;flex-direction:column;}
+  .page.on{display:flex;}
+
+  /* ===== 通用顶栏 ===== */
+  .topbar{position:sticky;top:0;z-index:30;background:var(--deep);color:#fff;display:flex;align-items:center;gap:10px;padding:12px 16px;}
+  .topbar .tb-back{background:none;border:none;color:#fff;font-size:14px;padding:4px 6px;opacity:.92;}
+  .topbar .tb-title{font-size:15px;font-weight:600;flex:1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+  .topbar .tb-act{background:none;border:1px solid rgba(255,255,255,.4);color:#fff;font-size:12px;border-radius:14px;padding:3px 10px;}
+
+  /* ===== 首页（App 式头部） ===== */
+  .apphead{background:var(--deep);color:#fff;padding:16px 20px 56px;}
+  .apphead .ah-top{display:flex;align-items:center;gap:8px;}
+  .apphead .brand{font-size:22px;font-weight:700;letter-spacing:2px;}
+  .apphead .brand .en{font-size:12px;font-weight:400;opacity:.7;margin-left:6px;letter-spacing:3px;}
+  .apphead .ah-hi{margin-top:12px;font-size:16px;font-weight:600;}
+  .apphead .ah-sub{margin-top:3px;font-size:12px;opacity:.8;}
+  .apphead.small{padding:16px 20px 14px;}
+
+  .home-body{padding:0 16px 88px;margin-top:-38px;flex:1;}
+
+  .search-card{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:16px;box-shadow:0 2px 10px rgba(31,77,58,.08);}
+  .cityfield{position:relative;border:1px solid var(--line);border-radius:10px;background:var(--chip);padding:10px 14px;display:flex;align-items:center;cursor:pointer;}
+  .cityfield .lbl{font-size:12px;color:var(--sub);width:44px;flex:none;}
+  .cityfield .val{font-size:17px;font-weight:600;flex:1;}
+  .cityfield .val.empty{color:#9a958a;font-weight:400;}
+  .cityfield.open{border-color:var(--deep);background:#fff;}
+  .swaprow{display:flex;justify-content:flex-end;margin:6px 2px;}
+  .swapbtn{border:1px solid var(--line);background:var(--card);border-radius:16px;font-size:13px;color:var(--sub);padding:3px 14px;}
+  .field-gap{height:10px;}
+
+  /* 城市下拉（内联组件） */
+  .citydd{position:absolute;left:-1px;right:-1px;top:calc(100% + 6px);z-index:40;background:#fff;border:1px solid var(--deep);border-radius:12px;box-shadow:0 8px 24px rgba(31,77,58,.18);overflow:hidden;text-align:left;cursor:default;}
+  .citydd .dd-search{display:flex;align-items:center;gap:8px;padding:10px 12px;border-bottom:1px solid var(--line);}
+  .citydd .dd-search input{flex:1;border:none;outline:none;font-size:14px;background:transparent;color:var(--ink);}
+  .citydd .dd-list{max-height:260px;overflow-y:auto;padding:6px 0 10px;}
+  .dd-group{padding:8px 14px 4px;font-size:12px;color:var(--sub);}
+  .dd-cities{display:flex;flex-wrap:wrap;gap:8px;padding:2px 14px 4px;}
+  .dd-city{border:1px solid var(--line);background:var(--chip);border-radius:8px;padding:6px 14px;font-size:14px;color:var(--ink);}
+  .dd-city:active{background:var(--deep);color:#fff;border-color:var(--deep);}
+  .dd-empty{padding:22px 16px;font-size:13px;color:var(--sub);text-align:center;line-height:1.8;}
+  .dd-empty b{color:var(--ink);}
+
+  .subfields{display:flex;gap:10px;margin-top:12px;}
+  .subfield{flex:1;border:1px solid var(--line);border-radius:10px;background:var(--chip);padding:8px 12px;}
+  .subfield .lbl{font-size:11px;color:var(--sub);display:block;}
+  .subfield input{width:100%;border:none;outline:none;background:transparent;font-size:14px;color:var(--ink);font-family:inherit;}
+  .paceseg{display:flex;gap:6px;flex:1.4;}
+  .paceseg button{flex:1;border:1px solid var(--line);background:var(--card);border-radius:10px;padding:8px 0 7px;font-size:13px;color:var(--sub);}
+  .paceseg button small{display:block;font-size:10px;color:#a5a094;line-height:1.2;}
+  .paceseg button.on{background:var(--deep);border-color:var(--deep);color:#fff;}
+  .paceseg button.on small{color:rgba(255,255,255,.7);}
+
+  #goBtn{margin-top:14px;width:100%;background:var(--deep);color:#fff;border:none;border-radius:10px;padding:13px;font-size:16px;letter-spacing:3px;font-weight:600;}
+  #goBtn:active{opacity:.9;}
+  .search-note{margin-top:10px;font-size:11px;color:var(--sub);line-height:1.8;}
+
+  .feat{margin-top:22px;}
+  .feat h2{font-size:16px;margin-bottom:4px;}
+  .feat .lead{font-size:12px;color:var(--sub);margin-bottom:10px;}
+  .feat-card{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:13px 16px;margin-bottom:10px;display:flex;align-items:center;gap:12px;text-align:left;width:100%;}
+  .feat-card:active{border-color:var(--deep);}
+  .fc-icon{width:38px;height:38px;border-radius:10px;background:var(--chip);display:flex;align-items:center;justify-content:center;font-size:18px;flex:none;}
+  .fc-main{flex:1;min-width:0;}
+  .fc-route{font-size:15px;font-weight:600;}
+  .fc-route .arr{color:var(--sub);font-weight:400;margin:0 4px;}
+  .fc-desc{font-size:12px;color:var(--sub);margin-top:1px;}
+  .fc-go{color:var(--deep);font-size:16px;}
+
+  .home-mini{margin-top:26px;text-align:center;font-size:11px;color:#a5a094;}
+
+  /* 最近查询 */
+  .recent{margin-top:16px;}
+  .recent .rc-h{font-size:12px;color:var(--sub);margin-bottom:6px;}
+  .recent .rc-row{display:flex;gap:8px;overflow-x:auto;padding-bottom:4px;-webkit-overflow-scrolling:touch;}
+  .rc-chip{flex:none;border:1px solid var(--line);background:var(--card);border-radius:16px;padding:6px 14px;font-size:13px;color:var(--ink);}
+  .rc-chip:active{border-color:var(--deep);}
+  .rc-chip b{color:var(--deep);}
+
+  /* 底部标签栏（App 式） */
+  .tabbar{display:none;position:fixed;left:50%;transform:translateX(-50%);bottom:0;width:100%;max-width:560px;background:var(--card);border-top:1px solid var(--line);z-index:50;padding-bottom:env(safe-area-inset-bottom);}
+  .tabbar.on{display:flex;}
+  .tabbar .tb-item{flex:1;background:none;border:none;padding:8px 0 7px;display:flex;flex-direction:column;align-items:center;gap:2px;font-size:11px;color:var(--sub);}
+  .tabbar .tb-item .ti{font-size:17px;line-height:1.15;filter:grayscale(1);opacity:.65;}
+  .tabbar .tb-item.on{color:var(--deep);font-weight:600;}
+  .tabbar .tb-item.on .ti{filter:none;opacity:1;}
+
+  /* 我的页 */
+  .me-body{padding:14px 16px 90px;}
+  .me-card{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:14px 16px;margin-bottom:12px;}
+  .me-card .bt{font-size:14px;font-weight:700;margin-bottom:6px;}
+  .me-card p{font-size:13px;color:var(--ink);line-height:1.8;}
+  .me-card p.dim{color:var(--sub);font-size:12px;}
+  .me-btn{display:inline-block;margin-top:8px;background:var(--deep);color:#fff;border:none;border-radius:8px;padding:8px 16px;font-size:13px;text-decoration:none;}
+  .me-btn.ghost{background:var(--chip);color:var(--ink);border:1px solid var(--line);}
+  .me-ver{margin-top:18px;text-align:center;font-size:11px;color:#a5a094;}
+
+  /* 走廊图页 */
+  #page-network .map-wrap{flex:1;position:relative;}
+  #netMap{position:absolute;inset:0;background:#e8e6df;}
+
+  /* ===== 方案页 ===== */
+  .plan-body{padding:14px 16px 90px;}
+  .sum{display:flex;flex-wrap:wrap;gap:8px;}
+  .sum .chip{background:var(--chip);color:var(--ink);border:1px solid var(--line);border-radius:8px;padding:4px 11px;font-size:12px;}
+  .sum .chip b{color:var(--deep);font-size:14px;margin-right:2px;}
+
+  .map-link{display:block;width:100%;margin-top:12px;background:var(--card);border:1px solid var(--line);border-radius:10px;padding:12px 16px;font-size:14px;color:var(--deep);font-weight:600;text-align:left;}
+  .map-link .arr{float:right;color:var(--sub);}
+
+  .warn{background:#fdf6ec;border:1px solid #f0dcc0;border-radius:10px;padding:12px 16px;margin-top:12px;font-size:13px;}
+  .warn b{color:#a06a1c;}
+  .warn ul{margin:6px 0 0 18px;}
+  .warn li{margin-bottom:3px;}
+
+  .days{margin-top:14px;display:flex;flex-direction:column;gap:10px;}
+  .day-card{background:var(--card);border:1px solid var(--line);border-left:4px solid var(--sub);border-radius:10px;padding:12px 14px;display:flex;align-items:center;gap:10px;text-align:left;width:100%;}
+  .day-card:active{border-color:var(--deep);border-left-color:var(--sub);}
+  .day-card.t-rest{border-left-color:var(--green);}
+  .day-card.t-move{border-left-color:var(--red);}
+  .day-card.t-both{border-left-color:var(--blue);}
+  .dc-day{font-weight:700;font-size:14px;flex:none;width:34px;text-align:left;}
+  .dc-mid{flex:1;min-width:0;}
+  .dc-line1{display:flex;align-items:center;gap:8px;flex-wrap:wrap;}
+  .dc-type{border-radius:4px;padding:0 8px;color:#fff;font-size:11px;line-height:18px;flex:none;}
+  .t-rest .dc-type{background:var(--green);}
+  .t-move .dc-type{background:var(--red);}
+  .t-both .dc-type{background:var(--blue);}
+  .dc-hours{font-size:12px;color:var(--sub);}
+  .dc-date{font-size:12px;color:var(--sub);}
+  .dc-chain{font-size:15px;font-weight:600;margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+  .dc-warn{font-size:12px;color:var(--red);margin-top:3px;}
+  .dc-arr{color:#c2bdb2;font-size:16px;flex:none;}
+
+  .budget-h{font-size:16px;margin:22px 0 8px;}
+  table{width:100%;border-collapse:collapse;font-size:14px;background:var(--card);border-radius:10px;overflow:hidden;}
+  th,td{text-align:left;padding:9px 14px;border-bottom:1px solid var(--line);}
+  th{background:var(--chip);font-size:13px;color:var(--sub);}
+  tr:last-child td{border-bottom:none;font-weight:700;background:#fbf9f3;}
+
+  .pacebar{position:fixed;bottom:0;left:0;right:0;z-index:30;background:#fff;border-top:1px solid var(--line);padding:10px 16px calc(10px + env(safe-area-inset-bottom));}
+  .pacebar .pb-in{max-width:560px;margin:0 auto;display:flex;gap:8px;align-items:center;}
+  .pacebar button{flex:1;border:1px solid var(--line);background:var(--card);border-radius:18px;padding:7px 0;font-size:13px;color:var(--sub);}
+  .pacebar button.on{background:var(--deep);border-color:var(--deep);color:#fff;}
+  .pacebar .pb-label{font-size:11px;color:var(--sub);flex:none;margin-right:2px;}
+
+  /* ===== 详情页 ===== */
+  .day-body{padding:16px 16px 40px;}
+  .dh{display:flex;align-items:center;gap:10px;flex-wrap:wrap;}
+  .dh .dc-type{font-size:12px;line-height:20px;padding:0 10px;}
+  .dh-date{font-size:13px;color:var(--sub);}
+  .dh-chain{font-size:20px;font-weight:700;margin-top:8px;}
+  .dh-hours{font-size:13px;color:var(--sub);margin-top:2px;}
+
+  .seg{background:var(--card);border:1px solid var(--line);border-radius:10px;padding:12px 14px;margin-top:10px;}
+  .seg.hard{border-left:4px solid var(--red);}
+  .seg.soft{border-left:4px solid var(--green);}
+  .seg.mid{border-left:4px solid var(--amber);}
+  .seg-route{font-size:15px;font-weight:600;}
+  .seg-meta{display:flex;flex-wrap:wrap;gap:6px;margin-top:6px;}
+  .seg-meta .m{font-size:11px;border-radius:4px;padding:1px 8px;background:var(--chip);color:var(--sub);border:1px solid var(--line);}
+  .seg-meta .m.l1{background:#e8f4ee;color:#1d7a52;border-color:#cfe8dc;}
+  .seg-meta .m.l2{background:#faf1de;color:#a06a1c;border-color:#f0dcc0;}
+  .seg-meta .m.l3{background:#fbe9e8;color:#b03a37;border-color:#f2cfcd;}
+  .seg-note{font-size:13px;color:var(--ink);margin-top:7px;}
+  .seg-conf{font-size:12px;color:var(--amber);margin-top:4px;}
+  .seg-conf.bad{color:var(--red);}
+
+  .stay{margin-top:18px;}
+  .stay-h{display:flex;align-items:baseline;gap:8px;}
+  .stay-h .city{font-size:18px;font-weight:700;}
+  .stay-h .tag{font-size:11px;background:var(--deep);color:#fff;border-radius:4px;padding:1px 8px;}
+  .stay-intro{font-size:14px;color:var(--ink);margin-top:6px;}
+  .stay-block{margin-top:12px;}
+  .stay-block .bt{font-size:13px;font-weight:700;color:var(--deep);margin-bottom:4px;}
+  .stay-block ul{list-style:none;}
+  .stay-block li{font-size:14px;padding:5px 0 5px 18px;position:relative;border-bottom:1px dashed var(--line);}
+  .stay-block li:last-child{border-bottom:none;}
+  .stay-block li:before{content:"";position:absolute;left:2px;top:13px;width:7px;height:7px;border-radius:50%;background:var(--green);}
+  .stay-block.foods li:before{background:var(--amber);}
+  .rest-tip{background:#eef5f1;border:1px solid #d8e9e0;border-radius:10px;padding:10px 14px;font-size:13px;color:#1d5c42;margin-top:12px;}
+
+  /* ===== 地图页 ===== */
+  #page-map .map-wrap{flex:1;position:relative;}
+  #fullMap{position:absolute;inset:0;background:#e8e6df;}
+  .map-legend{position:absolute;left:12px;bottom:12px;z-index:20;background:rgba(255,255,255,.94);border:1px solid var(--line);border-radius:10px;padding:8px 12px;font-size:11px;color:var(--sub);line-height:1.9;}
+  .map-legend .sw{display:inline-block;width:18px;height:4px;border-radius:2px;vertical-align:middle;margin-right:5px;}
+  .city-pin{display:flex;align-items:center;justify-content:center;border-radius:50%;background:#333;color:#fff;border:2px solid #fff;font-weight:700;font-size:11px;box-shadow:0 1px 3px rgba(0,0,0,.35);}
+  .leaflet-popup-content{font-size:13px;line-height:1.7;}
+
+  /* ===== 无结果页 ===== */
+  .nr-body{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:40px 30px;text-align:center;}
+  .nr-ico{font-size:44px;margin-bottom:14px;}
+  .nr-title{font-size:17px;font-weight:700;}
+  .nr-desc{font-size:13px;color:var(--sub);margin-top:10px;line-height:1.9;}
+  .nr-btn{margin-top:22px;background:var(--deep);color:#fff;border:none;border-radius:10px;padding:11px 30px;font-size:14px;}
+
+  .toast{position:fixed;left:50%;bottom:84px;transform:translateX(-50%);background:rgba(43,43,43,.92);color:#fff;font-size:13px;padding:8px 18px;border-radius:18px;z-index:60;opacity:0;pointer-events:none;transition:opacity .25s;}
+  .toast.on{opacity:1;}
+</style>
+</head>
+<body>
+<div class="app">
+
+  <!-- ============ 首页 ============ -->
+  <div class="page" id="page-home">
+    <div class="apphead">
+      <div class="ah-top"><div class="brand">慢巴<span class="en">BUSSLOW</span></div></div>
+      <div class="ah-hi" id="greetLine">你好，今天慢慢去哪座城？</div>
+      <div class="ah-sub">不坐高铁 · 一座城一座城地走</div>
+    </div>
+    <div class="home-body">
+      <div class="search-card">
+        <div class="cityfield" id="cfFrom">
+          <span class="lbl">从</span><span class="val empty" id="valFrom">选择出发城市</span>
+        </div>
+        <div class="swaprow"><button class="swapbtn" id="swapBtn" type="button">⇄ 交换起终点</button></div>
+        <div class="cityfield" id="cfTo">
+          <span class="lbl">到</span><span class="val empty" id="valTo">选择到达城市</span>
+        </div>
+
+        <div class="subfields">
+          <div class="subfield">
+            <span class="lbl">出发日期（可不填）</span>
+            <input type="date" id="dateInput">
+          </div>
+          <div class="paceseg" id="homePace">
+            <button type="button" data-p="relax">松弛<small>≤4h/天</small></button>
+            <button type="button" data-p="bal" class="on">均衡<small>≤6h/天</small></button>
+            <button type="button" data-p="hard">赶路<small>≤8h/天</small></button>
+          </div>
+        </div>
+        <button id="goBtn" type="button">生成我的慢行方案</button>
+        <p class="search-note">路线只在「已核实走廊图」上搜索，每一段都真实存在；查不到连通说明走廊库还没覆盖，宁可没有也不编。</p>
+      </div>
+
+      <div class="recent" id="recentBox" hidden>
+        <div class="rc-h">最近查询</div>
+        <div class="rc-row" id="recentRow"></div>
+      </div>
+
+      <div class="feat">
+        <h2>精选走廊</h2>
+        <div class="lead">逐条核实的经典走法，点一下直接生成（均衡节奏）</div>
+        <div id="featList"></div>
+      </div>
+
+      <div class="home-mini">慢巴 BusSlow · 不编路线，只走核实过的走廊 · 来源与说明见「我的」</div>
+    </div>
+  </div>
+
+  <!-- ============ 方案页 ============ -->
+  <div class="page" id="page-plan">
+    <div class="topbar">
+      <button class="tb-back" id="planBack" type="button">‹ 改条件</button>
+      <div class="tb-title" id="planTitle"></div>
+      <button class="tb-act" id="shareBtn" type="button">复制链接</button>
+    </div>
+    <div class="plan-body">
+      <div class="sum" id="sumChips"></div>
+      <button class="map-link" id="mapLink" type="button">查看路线地图<span class="arr">›</span></button>
+      <div id="warnBox"></div>
+      <div class="days" id="daysGrid"></div>
+      <div class="budget-h">预算估算</div>
+      <table id="budgetTable"></table>
+    </div>
+    <div class="pacebar">
+      <div class="pb-in">
+        <span class="pb-label">节奏</span>
+        <button type="button" data-p="relax">松弛</button>
+        <button type="button" data-p="bal">均衡</button>
+        <button type="button" data-p="hard">赶路</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ============ 日程详情页 ============ -->
+  <div class="page" id="page-day">
+    <div class="topbar">
+      <button class="tb-back" id="dayBack" type="button">‹ 返回方案</button>
+      <div class="tb-title" id="dayTitle"></div>
+    </div>
+    <div class="day-body" id="dayBody"></div>
+  </div>
+
+  <!-- ============ 全屏地图页 ============ -->
+  <div class="page" id="page-map">
+    <div class="topbar">
+      <button class="tb-back" id="mapBack" type="button">‹ 返回方案</button>
+      <div class="tb-title" id="mapTitle">路线地图</div>
+    </div>
+    <div class="map-wrap">
+      <div id="fullMap"></div>
+      <div class="map-legend">
+        <span><span class="sw" style="background:var(--green)"></span>轻松段</span>
+        <span><span class="sw" style="background:var(--amber)"></span>中等段</span>
+        <span><span class="sw" style="background:var(--red)"></span>硬段/破例段</span><br>
+        圆点序号＝第几天到达 · 点城市看吃玩
+      </div>
+    </div>
+  </div>
+
+  <!-- ============ 无结果页（防御性） ============ -->
+  <div class="page" id="page-noroute">
+    <div class="topbar">
+      <button class="tb-back" id="nrBack" type="button">‹ 改条件</button>
+      <div class="tb-title">暂时连不上</div>
+    </div>
+    <div class="nr-body">
+      <div class="nr-ico">🚌</div>
+      <div class="nr-title" id="nrTitle">这两座城暂时连不上</div>
+      <div class="nr-desc">走廊库还没覆盖这对起终点——规划器只在已核实的走廊上搜索，宁可没有也不编。<br>试试把起终点换到沪京主线、浙江全省，或山东、京津冀支线上。</div>
+      <button class="nr-btn" id="nrBtn" type="button">回首页改条件</button>
+    </div>
+  </div>
+
+  <!-- ============ 走廊图页（浏览全部核实走廊） ============ -->
+  <div class="page" id="page-network">
+    <div class="apphead small">
+      <div class="ah-top"><div class="brand">走廊图<span class="en">NETWORK</span></div></div>
+      <div class="ah-sub" id="netSub">34 城 · 36 条逐条核实的走廊 · 点城市圆点看吃玩</div>
+    </div>
+    <div class="map-wrap">
+      <div id="netMap"></div>
+      <div class="map-legend">
+        <span><span class="sw" style="background:var(--green)"></span>轻松段</span>
+        <span><span class="sw" style="background:var(--amber)"></span>中等段</span>
+        <span><span class="sw" style="background:var(--red)"></span>硬段/破例段</span><br>
+        每条线都真实存在 · 点城市圆点看吃玩
+      </div>
+    </div>
+  </div>
+
+  <!-- ============ 我的页 ============ -->
+  <div class="page" id="page-me">
+    <div class="apphead small">
+      <div class="ah-top"><div class="brand">我的<span class="en">MINE</span></div></div>
+    </div>
+    <div class="me-body">
+      <div class="me-card">
+        <div class="bt">关于慢巴</div>
+        <p>慢巴只做一件事：把真实存在的城际公交/地铁走廊，拼成一份不赶路的慢行方案。不坐高铁、不编路线；走廊库没覆盖的起终点，宁可说「连不上」。</p>
+      </div>
+      <div class="me-card">
+        <div class="bt">走廊库与来源</div>
+        <p>更新于 2026-08-21 · 华东+浙江+华北 34 城 · 36 条走廊。所有走廊标注信心等级；标「需复核」的段，临行前用高德/百度实时公交或车站电话确认。</p>
+        <p class="dim">核心来源：交通运输部 · 齐鲁网 · 济南市政府 · 济宁市政府 · 山东交运 · 北京本地宝 · 人民网 · 天津客运西站 · 新华网 · 中青在线/解放日报 · 杭州网/潮新闻 · 上观新闻 · 宁波新闻网 · 车次网/欣欣旅游时刻表等。</p>
+      </div>
+      <div class="me-card">
+        <div class="bt">线路报错</div>
+        <p>发现某段走廊没车了？提一个 issue，我们看到后会下线或降级该走廊。</p>
+        <a class="me-btn" href="https://github.com/zhanglanyin-bot/bustour/issues/new" target="_blank" rel="noopener">去提 issue</a>
+      </div>
+      <div class="me-card">
+        <div class="bt">装到手机</div>
+        <p>用浏览器打开本站，菜单里选「添加到主屏幕」，就能像 App 一样全屏打开、离线可用。</p>
+      </div>
+      <div class="me-card">
+        <div class="bt">最近查询</div>
+        <p class="dim">首页的「最近查询」只存在你这台设备上。</p>
+        <button class="me-btn ghost" id="clearRecent" type="button">清除最近查询</button>
+      </div>
+      <div class="me-ver">慢巴 BusSlow v2.1 · 2026-08-21</div>
+    </div>
+  </div>
+
+  <!-- ============ 底部标签栏 ============ -->
+  <div class="tabbar" id="tabbar">
+    <button class="tb-item on" data-tab="/" type="button"><span class="ti">🏠</span>首页</button>
+    <button class="tb-item" data-tab="/network" type="button"><span class="ti">🗺️</span>走廊图</button>
+    <button class="tb-item" data-tab="/me" type="button"><span class="ti">👤</span>我的</button>
+  </div>
+
+</div>
+<div class="toast" id="toast"></div>
+
+<script src="vendor/leaflet.min.js"></script>
+<script>
+/* ================= 数据层（与 v1 一致，逐条核实） ================= */
+var CITY = {
+  '上海':{lat:31.2304,lng:121.4737,rest:0,food:'生煎/葱油拌面/小笼，出发前吃顿好的',sights:'外滩 · 武康路梧桐区 · 人民广场博物馆群'},
+  '苏州':{lat:31.2989,lng:120.5853,rest:1,food:'苏帮菜偏甜：松鼠鳜鱼，平江路小吃随走随吃',sights:'平江路 · 山塘街夜景 · 拙政园/苏博需预约'},
+  '无锡':{lat:31.4912,lng:120.3119,rest:0,food:'无锡小笼是甜口的，三凤桥酱排骨',sights:'南长街 · 清名桥古运河夜景'},
+  '常州':{lat:31.8106,lng:119.9741,rest:0,food:'常州大麻糕，换乘午餐刚好',sights:'红梅公园'},
+  '镇江':{lat:32.1877,lng:119.4250,rest:0,food:'锅盖面+肴肉，镇江三怪吃法',sights:'西津渡老街 · 金山寺'},
+  '扬州':{lat:32.3947,lng:119.4128,rest:1,food:'早茶：三丁包/大煮干丝/蟹黄汤包',sights:'瘦西湖需半天 · 东关街夜逛'},
+  '南京':{lat:32.0603,lng:118.7969,rest:1,food:'盐水鸭/鸭血粉丝汤',sights:'夫子庙秦淮河夜景 · 玄武湖免费'},
+  '滁州':{lat:32.3016,lng:118.3162,rest:0,food:'没有招牌大菜，简单吃早点睡',sights:'琅琊山可选'},
+  '蚌埠':{lat:32.9166,lng:117.3884,rest:0,food:'小龙虾+烧烤，皖北小吃城',sights:'无著名景点 · 早休息'},
+  '宿州市':{lat:33.6463,lng:116.9641,rest:0,food:'符离集烧鸡是招牌',sights:'途经城 · 早休息'},
+  '徐州':{lat:34.2615,lng:117.1848,rest:2,food:'早上饣它汤，中午地锅鸡，晚上烧烤',sights:'云龙湖环湖免费 · 汉兵马俑博物馆可选'},
+  '枣庄':{lat:34.8107,lng:117.3236,rest:0,food:'辣子鸡+菜煎饼',sights:'台儿庄古城离市区1h，需半天，可选'},
+  '济宁':{lat:35.4146,lng:116.5872,rest:0,food:'甏肉干饭，一碗管饱',sights:'运河边走走 · 可加曲阜三孔半天'},
+  '曲阜':{lat:35.5967,lng:116.9861,rest:1,food:'孔府宴是正式场合，日常吃曲阜煎饼',sights:'三孔（孔庙/孔府/孔林）世界遗产'},
+  '泰安':{lat:36.1950,lng:117.0880,rest:1,food:'泰安三美白菜豆腐水，小葱蘸酱热豆腐',sights:'泰山 · 十八盘登顶看日出需整天'},
+  '济南':{lat:36.6512,lng:117.1201,rest:2,food:'甜沫+油旋早上吃，把子肉中午吃，九转大肠晚上吃',sights:'黑虎泉打水免费 · 大明湖免费 · 趵突泉40元可选'},
+  '德州':{lat:37.4341,lng:116.3575,rest:0,food:'德州扒鸡原产地，路边店买现做的',sights:'董子公园免费 · 老城区溜达'},
+  '衡水':{lat:37.7390,lng:115.6700,rest:0,food:'晚餐简单，尝一口衡水老白干',sights:'衡水湖边溜达'},
+  '沧州':{lat:38.3037,lng:116.8388,rest:0,food:'火锅鸡，口重加羊肠汤',sights:'南川老街 · 运河夜景 · 铁狮子较远'},
+  '天津':{lat:39.3434,lng:117.3616,rest:2,food:'煎饼馃子+嘎巴菜早上吃，面茶卷圈下午吃，栗子麻花当手信',sights:'五大道 · 古文化街 · 名流茶馆相声 · 天津之眼夜景'},
+  '廊坊':{lat:39.5388,lng:116.6838,rest:0,food:'香河肉饼，皮薄肉汁多',sights:'中转城 · 胜芳古镇较远可选'},
+  '涿州':{lat:39.4853,lng:115.9744,rest:0,food:'小城饭馆简单吃',sights:'中转节点 · 早休息'},
+  '北京':{lat:39.9042,lng:116.4074,rest:0,food:'炸酱面/卤煮火烧收尾',sights:'前门/什刹海 · 抵达后自行安排'},
+  '嘉兴':{lat:30.7467,lng:120.7555,rest:1,food:'五芳斋粽子当路餐，文虎酱鸭',sights:'南湖 · 月河历史街区夜逛'},
+  '湖州':{lat:30.8943,lng:120.0868,rest:1,food:'丁莲芳千张包，南浔双交面',sights:'南浔古镇半天 · 太湖边溜达'},
+  '杭州':{lat:30.2741,lng:120.1551,rest:2,food:'片儿川早上吃，龙井虾仁正餐吃',sights:'西湖环湖免费 · 河坊街 · 灵隐寺可选'},
+  '绍兴':{lat:30.0023,lng:120.5803,rest:1,food:'臭豆腐+茴香豆，温一壶黄酒',sights:'鲁迅故里免费 · 沈园 · 东湖可选'},
+  '宁波':{lat:29.8683,lng:121.5440,rest:2,food:'汤圆是原产地，红膏蟹看季节',sights:'老外滩夜景 · 鼓楼 · 天一阁可选'},
+  '舟山':{lat:30.0160,lng:122.2070,rest:1,food:'海鲜面随便吃，夜排档看海',sights:'朱家尖沙滩 · 普陀山需整天可选'},
+  '金华':{lat:29.0786,lng:119.6474,rest:1,food:'金华汤包+酥饼，火腿入菜',sights:'八咏楼 · 双龙洞可选半天'},
+  '衢州':{lat:28.9569,lng:118.8594,rest:1,food:'三头一掌很辣，衢州烤饼当路餐',sights:'水亭门历史街区 · 孔氏南宗家庙'},
+  '台州':{lat:28.6562,lng:121.4208,rest:0,food:'临海麦虾，蛋清羊尾是甜点',sights:'椒江老街 · 江南长城在临海需半天可选'},
+  '温州':{lat:27.9943,lng:120.6994,rest:2,food:'长粉+鱼丸，鸭舌当手信',sights:'五马街 · 江心屿 · 雁荡山需整天可选'},
+  '丽水':{lat:28.4672,lng:119.9229,rest:0,food:'缙云烧饼，山区菌菇菜',sights:'南明山 · 古堰画乡半天可选'}
+};
+
+/* 城市内容库（v2 新增：简介1-2句 + 玩点1-3 + 美食1-3，AI初稿待人工校对） */
+var CONTENT = {
+  '上海':{intro:'出发城。外滩的江风和法租界的梧桐，够你慢慢走出城去。',sights:['外滩滨江步道','武康路—安福路梧桐区'],food:['生煎','葱油拌面','小笼包']},
+  '苏州':{intro:'全程节奏最慢的城市之一，园林与水路是慢行最好的热身。',sights:['平江路历史街区','山塘街夜景','苏州博物馆（需预约）'],food:['苏帮菜：松鼠鳜鱼','同得兴苏式面']},
+  '无锡':{intro:'被糖和酱汁养甜的城市，运河夜色值得多留一晚。',sights:['南长街·清名桥古运河夜景'],food:['无锡小笼（甜口）','三凤桥酱排骨']},
+  '常州':{intro:'主线上的换乘城，时间富余就逛红梅公园，午餐吃大麻糕刚好。',sights:['红梅公园'],food:['常州大麻糕']},
+  '镇江':{intro:'长江与大运河的交汇口，西津渡是沿线保存最好的古渡口。',sights:['西津渡历史街区','金山寺'],food:['锅盖面','水晶肴肉']},
+  '扬州':{intro:'瘦西湖值得半天，早茶值得早起——江苏段最懂「慢」的城。',sights:['瘦西湖（半天）','东关街夜逛'],food:['早茶：三丁包/大煮干丝','蟹黄汤包']},
+  '南京':{intro:'六朝古都，秦淮河夜景与玄武湖都免费，对钱包很友好。',sights:['夫子庙·秦淮河夜景','玄武湖公园（免费）'],food:['盐水鸭','鸭血粉丝汤']},
+  '滁州':{intro:'南京与蚌埠之间的回血小城，琅琊山可选，重点是早休息。',sights:['琅琊山（可选半天）'],food:['本地早点，简单吃']},
+  '蚌埠':{intro:'淮河边的珠城，没有著名景点，小龙虾和烧烤是夜晚的正事。',sights:['无著名景点·早休息'],food:['小龙虾','烧烤摊']},
+  '宿州市':{intro:'皖北途经城，符离集烧鸡是唯一需要记住的事。',sights:['途经城·早休息'],food:['符离集烧鸡']},
+  '徐州':{intro:'两汉文化发源地，云龙湖畔节奏很慢，是全程最适合休整的大城之一。',sights:['云龙湖环湖（免费）','汉兵马俑博物馆（半天）'],food:['早上饣它汤','中午地锅鸡','晚上烧烤']},
+  '枣庄':{intro:'台儿庄古城离市区一小时，想去要留半天；市区本身吃辣子鸡就值了。',sights:['台儿庄古城（半天·可选）'],food:['辣子鸡','菜煎饼']},
+  '济宁':{intro:'运河边的小城，甏肉干饭管饱，可加半天曲阜三孔。',sights:['运河边走走','曲阜三孔（可选半天）'],food:['甏肉干饭']},
+  '曲阜':{intro:'三孔是世界遗产，城市气质端庄，适合慢慢走、正式吃一顿。',sights:['三孔：孔庙/孔府/孔林（世界遗产）'],food:['曲阜煎饼','孔府宴（正式场合）']},
+  '泰安':{intro:'整座城为泰山而设，想看十八盘顶上的日出，就留足一整天。',sights:['泰山登顶看日出（整天）'],food:['泰安三白：白菜豆腐水','小葱蘸酱热豆腐']},
+  '济南':{intro:'泉城，打泉水、逛大明湖都免费，全程最好的休整城市之一。',sights:['黑虎泉打水（免费）','大明湖（免费）','趵突泉（40元·可选）'],food:['甜沫+油旋','把子肉','九转大肠']},
+  '德州':{intro:'扒鸡原产地，鲁北小城，董子公园免费逛。',sights:['董子公园（免费）','老城区溜达'],food:['德州扒鸡（买现做的）']},
+  '衡水':{intro:'河北平原上的转折大站，衡水湖值得走走，尝一口老白干。',sights:['衡水湖边溜达'],food:['衡水老白干（尝一口）']},
+  '沧州':{intro:'运河边的武术之乡，南川老街夜景好，火锅鸡必吃。',sights:['南川老街·运河夜景','铁狮子（较远·可选）'],food:['火锅鸡','羊肠汤']},
+  '天津':{intro:'全程最值得停的大城：五大道的洋楼、茶馆相声、海河夜景，都要时间。',sights:['五大道','古文化街','茶馆相声/天津之眼夜景'],food:['煎饼馃子+嘎巴菜','面茶卷圈','栗子麻花当手信']},
+  '廊坊':{intro:'京津之间的中转城，在武清换一次车，香河肉饼值得吃。',sights:['中转城·胜芳古镇（远·可选）'],food:['香河肉饼']},
+  '涿州':{intro:'838 跨省线北端的小城，早休息。',sights:['中转节点·早休息'],food:['小城饭馆简单吃']},
+  '北京':{intro:'终点站，前门和什刹海收尾，之后的路自己安排。',sights:['前门/什刹海'],food:['炸酱面','卤煮火烧']},
+  '嘉兴':{intro:'从上海进浙江的门户城，粽子当路餐，月河的夜色值得住一晚。',sights:['南湖','月河历史街区'],food:['五芳斋粽子','文虎酱鸭']},
+  '湖州':{intro:'太湖南岸，南浔古镇是主菜——江南六大古镇里最不喧闹的一个。',sights:['南浔古镇（半天）','太湖边溜达'],food:['丁莲芳千张包','南浔双交面']},
+  '杭州':{intro:'南线段最重要的枢纽城，西湖免费，值得留一整个休整日。',sights:['西湖环湖（免费）','河坊街·南宋御街','灵隐寺（可选·半天）'],food:['片儿川','龙井虾仁','知味观点心']},
+  '绍兴':{intro:'地铁从杭州直达，黄酒和鲁迅笔下的小城，半天就够入味。',sights:['鲁迅故里·三味书屋（免费）','沈园','东湖（可选）'],food:['臭豆腐','茴香豆+黄酒','梅干菜扣肉']},
+  '宁波':{intro:'南线的起点城之一，三江口夜色好，汤圆要吃现包的。',sights:['老外滩·鼓楼','天一阁（可选）'],food:['宁波汤圆','红膏蟹（看季节）','宁波年糕']},
+  '舟山':{intro:'看海的终点站，跨海大桥上岛；想去普陀山要再加一天。',sights:['朱家尖沙滩','普陀山（可选·轮渡+整天）'],food:['海鲜面','夜排档海鲜']},
+  '金华':{intro:'浙中枢纽城，火腿名不虚传，老城八咏楼看婺江。',sights:['八咏楼·古子城','双龙洞（可选·半天）'],food:['金华汤包','金华酥饼','火腿入菜']},
+  '衢州':{intro:'浙西门户，吃辣者的福地，三头一掌比想象中辣。',sights:['水亭门历史街区','孔氏南宗家庙'],food:['三头一掌','衢州烤饼']},
+  '台州':{intro:'沿海小城，椒江老街有烟火气；去临海爬江南长城要留半天。',sights:['椒江老街','江南长城（临海·半天·可选）'],food:['临海麦虾','蛋清羊尾']},
+  '温州':{intro:'南线终点站，五马街买鸭舌，江心屿看瓯江；雁荡山另留一天。',sights:['五马街·江心屿','雁荡山（可选·整天）'],food:['长粉','温州鱼丸','酱鸭舌']},
+  '丽水':{intro:'浙南山城，中转为主；时间富余去古堰画乡看瓯江帆影。',sights:['南明山','古堰画乡（半天·可选）'],food:['缙云烧饼','山区菌菇菜']}
+};
+
+var EDGES = [
+  {a:'上海',b:'苏州',mode:'metro',level:1,hours:2,cost:10,conf:'高',note:'地铁11号线→花桥→苏州11号线，无缝跨省'},
+  {a:'苏州',b:'无锡',mode:'bus',level:2,hours:3,cost:15,conf:'高',note:'G312方向公交接力'},
+  {a:'无锡',b:'常州',mode:'bus',level:2,hours:2.5,cost:10,conf:'高',note:'公交接力'},
+  {a:'常州',b:'镇江',mode:'bus',level:2,hours:3,cost:12,conf:'高',note:'公交接力'},
+  {a:'镇江',b:'扬州',mode:'ferry',level:1,hours:1,cost:5,conf:'高',note:'轮渡过长江'},
+  {a:'扬州',b:'南京',mode:'bus',level:2,hours:4,cost:20,conf:'高',note:'经仪征公交接力'},
+  {a:'南京',b:'滁州',mode:'metro',level:2,hours:3.5,cost:12,conf:'高',note:'公交至汊河+宁滁城际S4'},
+  {a:'滁州',b:'蚌埠',mode:'bus',level:3,hours:6,cost:25,conf:'高',note:'G104经明光接力，班次稀疏'},
+  {a:'蚌埠',b:'徐州',mode:'bus',level:3,hours:6,cost:30,conf:'高',note:'固镇→宿州仅7:30/8:40/14:30三班；萧县→徐州901路30-60分钟一班'},
+  {a:'徐州',b:'枣庄',mode:'bus',level:3,hours:6,cost:25,conf:'高',note:'铜山→滕州接力'},
+  {a:'枣庄',b:'济宁',mode:'bus',level:2,hours:5.5,cost:25,conf:'高',note:'经邹城、兖州接力'},
+  {a:'济宁',b:'济南',mode:'bus',level:3,hours:7,cost:30,conf:'高',note:'汶上→东平→长清，全天'},
+  {a:'济南',b:'德州',mode:'bus',level:2,hours:2.5,cost:40,conf:'高',note:'济德城际公交，30分钟一班'},
+  {a:'德州',b:'衡水',mode:'bus',level:2,hours:2.5,cost:25,conf:'高',note:'德衡城际K206直达，全程48站'},
+  {a:'衡水',b:'沧州',mode:'coach',level:3,hours:2.75,cost:60,conf:'高',note:'直达班车·破例段（无公交化走廊，上午班次多）'},
+  {a:'沧州',b:'天津',mode:'coach',level:3,hours:2,cost:50,conf:'高',note:'直达班车·破例段（6:00-12:00每20分钟一班）'},
+  {a:'天津',b:'北京',mode:'bus',level:2,hours:4,cost:12,conf:'高',note:'公交至武清→武清专1路跨省→次渠地铁进城'},
+  {a:'北京',b:'涿州',mode:'bus',level:2,hours:2,cost:8,conf:'高',note:'838路跨省公交'},
+  {a:'北京',b:'廊坊',mode:'bus',level:2,hours:1.5,cost:10,conf:'高',note:'805快/805路跨省，阶梯票价'},
+  {a:'廊坊',b:'天津',mode:'bus',level:2,hours:1.5,cost:5,conf:'中高',note:'廊坊—武清定制公交24班/日；进天津主城需在武清换乘'},
+  {a:'济南',b:'泰安',mode:'bus',level:2,hours:1.5,cost:25,conf:'高',note:'济泰便民快巴45分钟一班（2026-05开通；K919已停运）'},
+  {a:'泰安',b:'曲阜',mode:'coach',level:3,hours:1.5,cost:20,conf:'中',note:'泰曲定制客运8:00-16:30；曲阜班车仅9:40/14:40 · 需复核'},
+  {a:'曲阜',b:'济宁',mode:'bus',level:1,hours:1,cost:4,conf:'高',note:'济宁城际B1/C605'},
+  /* ===== 浙江走廊（2026-08 逐条核实入库） ===== */
+  {a:'上海',b:'嘉兴',mode:'bus',level:2,hours:1.5,cost:35,conf:'高',note:'嘉兴客运中心⇌上海快客全天多班（车次网时刻表核实）'},
+  {a:'嘉兴',b:'杭州',mode:'metro',level:2,hours:2.5,cost:15,conf:'中高',note:'班车至海宁→杭海城际进杭（2021开通）；直达快客已随杭海城际停运，需换乘一次'},
+  {a:'湖州',b:'杭州',mode:'bus',level:2,hours:1.5,cost:40,conf:'高',note:'湖州汽车总站⇌杭州快客全天多班'},
+  {a:'杭州',b:'绍兴',mode:'metro',level:1,hours:1,cost:8,conf:'高',note:'杭州地铁5号线→姑娘桥→绍兴1号线，双城贯通运营'},
+  {a:'绍兴',b:'宁波',mode:'bus',level:2,hours:1.5,cost:35,conf:'高',note:'绍兴公路客运西站⇌宁波客运中心'},
+  {a:'杭州',b:'宁波',mode:'bus',level:2,hours:2.5,cost:60,conf:'高',note:'汽车南站2024关停，改在火车东站汽车站/客运中心乘车'},
+  {a:'宁波',b:'舟山',mode:'bus',level:2,hours:1.5,cost:50,conf:'高',note:'经舟山跨海大桥，2025年班次加密（甬舟快线）'},
+  {a:'杭州',b:'金华',mode:'bus',level:2,hours:2.5,cost:65,conf:'中高',note:'南站2024关停，火车东站汽车站乘车 · 班次以车站为准'},
+  {a:'金华',b:'衢州',mode:'bus',level:2,hours:1.5,cost:40,conf:'高',note:'衢州客运中心⇌金华快客多班；衢州市区另有网约公交接驳车站'},
+  {a:'金华',b:'丽水',mode:'bus',level:2,hours:2,cost:50,conf:'中高',note:'丽水方向班车已迁至丽水高铁站发车'},
+  {a:'丽水',b:'温州',mode:'bus',level:2,hours:2,cost:55,conf:'中高',note:'丽水高铁站发车，部分班次至温州龙湾'},
+  {a:'宁波',b:'台州',mode:'bus',level:2,hours:2.5,cost:70,conf:'高',note:'路桥客运中心⇌宁波客运中心（台州指椒江/路桥市区）'},
+  {a:'台州',b:'温州',mode:'bus',level:2,hours:1.5,cost:45,conf:'高',note:'台州⇌温州快客多班（车次网2026-08核实）'}
+];
+
+var PACES = {
+  relax:{cap:4, maxConsec:2, label:'松弛'},
+  bal:{cap:6, maxConsec:3, label:'均衡'},
+  hard:{cap:8, maxConsec:4, label:'赶路'}
+};
+var COLORS = {1:'#2f9e6e', 2:'#e0a13c', 3:'#d9534f'};
+var TYPE_LABEL = {rest:'休整日', move:'移动日', both:'轻移动+玩'};
+var MODE_LABEL = {bus:'公交', metro:'地铁/轨道', ferry:'轮渡', coach:'班车'};
+/* 省份分组，按行程直觉排序（浙→沪→苏→皖→鲁→冀→津→京） */
+var GROUPS = [
+  ['浙江',['嘉兴','湖州','杭州','绍兴','宁波','舟山','金华','衢州','台州','温州','丽水']],
+  ['上海',['上海']],
+  ['江苏',['苏州','无锡','常州','镇江','扬州','南京','徐州']],
+  ['安徽',['滁州','蚌埠','宿州市']],
+  ['山东',['济南','泰安','曲阜','济宁','枣庄','德州']],
+  ['河北',['廊坊','涿州','衡水','沧州']],
+  ['天津',['天津']],
+  ['北京',['北京']]
+];
+/* 精选走廊（天数经算法实测核实，均衡节奏） */
+var FEATURED = [
+  {from:'上海',to:'北京',icon:'🏛',desc:'经典全线 · 均衡16天 · 途经18城'},
+  {from:'上海',to:'杭州',icon:'🍃',desc:'周末下江南 · 均衡1天 · 经海宁换杭海城际'},
+  {from:'上海',to:'舟山',icon:'🌊',desc:'去看海 · 均衡2天 · 跨海大桥上岛'},
+  {from:'温州',to:'北京',icon:'🧭',desc:'南北大全线 · 均衡20天 · 途经23城'},
+  {from:'苏州',to:'扬州',icon:'🍵',desc:'江南短周末 · 均衡2天 · 轮渡过江'}
+];
+
+/* ================= 规划算法（与 v1 完全一致） ================= */
+function findPath(from, to){
+  var adj = {};
+  EDGES.forEach(function(e, i){
+    (adj[e.a] = adj[e.a] || []).push({to:e.b, i:i});
+    (adj[e.b] = adj[e.b] || []).push({to:e.a, i:i});
+  });
+  var dist = {}, prev = {}, done = {};
+  Object.keys(CITY).forEach(function(c){ dist[c] = Infinity; });
+  dist[from] = 0;
+  for(;;){
+    var u = null, best = Infinity;
+    Object.keys(dist).forEach(function(c){
+      if(!done[c] && dist[c] < best){ best = dist[c]; u = c; }
+    });
+    if (u === null || u === to) break;
+    done[u] = true;
+    (adj[u] || []).forEach(function(nb){
+      var e = EDGES[nb.i];
+      var w = e.hours + (e.level - 1) * 1.0 + (e.mode === 'coach' ? 0.5 : 0) + (e.conf !== '高' ? 1.0 : 0) + 0.75;
+      if (dist[u] + w < dist[nb.to]) { dist[nb.to] = dist[u] + w; prev[nb.to] = {city:u, edge:nb.i}; }
+    });
+  }
+  if (dist[to] === Infinity) return null;
+  var steps = [], c = to;
+  while (c !== from) { var p = prev[c]; steps.unshift({ei:p.edge, from:p.city, to:c}); c = p.city; }
+  return steps;
+}
+
+function buildDays(path, pace){
+  var P = PACES[pace];
+  var moveDays = [], cur = {steps:[], hours:0};
+  path.forEach(function(st){
+    var e = EDGES[st.ei];
+    if (cur.steps.length && cur.hours + e.hours > P.cap) { moveDays.push(cur); cur = {steps:[], hours:0}; }
+    cur.steps.push(st); cur.hours += e.hours;
+  });
+  if (cur.steps.length) moveDays.push(cur);
+  var days = [], consec = 0;
+  moveDays.forEach(function(md, idx){
+    var chain = [md.steps[0].from];
+    md.steps.forEach(function(st){ chain.push(st.to); });
+    var overnight = chain[chain.length - 1];
+    var type = md.hours <= 3.5 ? 'both' : 'move';
+    days.push({type:type, hours:md.hours, chain:chain, steps:md.steps, city:overnight});
+    consec++;
+    var isLast = idx === moveDays.length - 1;
+    if (!isLast) {
+      var restVal = CITY[overnight].rest;
+      if (consec >= P.maxConsec || (restVal >= 2 && consec >= 2 && pace !== 'hard')) {
+        days.push({type:'rest', hours:0, chain:[overnight], steps:[], city:overnight});
+        consec = 0;
+      }
+    }
+  });
+  return days;
+}
+
+/* ================= 工具 ================= */
+function $(id){ return document.getElementById(id); }
+function esc(s){ return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+function fmtHours(h){ return (h % 1 === 0 ? h : h.toFixed(1)) + 'h'; }
+var WEEK = ['周日','周一','周二','周三','周四','周五','周六'];
+function dateOf(dateStr, offset){
+  if (!dateStr) return '';
+  var p = dateStr.split('-');
+  var d = new Date(+p[0], +p[1]-1, +p[2]);
+  d.setDate(d.getDate() + offset);
+  return (d.getMonth()+1) + '月' + d.getDate() + '日 · ' + WEEK[d.getDay()];
+}
+var toastTimer = null;
+function toast(msg){
+  var t = $('toast'); t.textContent = msg; t.classList.add('on');
+  clearTimeout(toastTimer); toastTimer = setTimeout(function(){ t.classList.remove('on'); }, 2200);
+}
+
+/* ================= 路由 ================= */
+function parseHash(){
+  var h = location.hash || '#/';
+  var qIdx = h.indexOf('?');
+  var route = qIdx >= 0 ? h.slice(1, qIdx) : h.slice(1);
+  var q = {};
+  if (qIdx >= 0) {
+    h.slice(qIdx+1).split('&').forEach(function(kv){
+      var kv2 = kv.split('=');
+      if (kv2[0]) q[decodeURIComponent(kv2[0])] = decodeURIComponent(kv2[1] || '');
+    });
+  }
+  return {route: route || '/', q: q};
+}
+function planHash(from, to, pace, date){
+  var h = '#/plan?from=' + encodeURIComponent(from) + '&to=' + encodeURIComponent(to) + '&pace=' + pace;
+  if (date) h += '&date=' + date;
+  return h;
+}
+function go(hash){ location.hash = hash; }
+function show(id){
+  ['page-home','page-plan','page-day','page-map','page-noroute','page-network','page-me'].forEach(function(p){
+    $(p).classList.toggle('on', p === id);
+  });
+}
+
+/* ================= 首页状态 ================= */
+var homeState = { from:'', to:'', pace:'bal' };
+
+function setCityField(which, city){
+  homeState[which] = city;
+  var val = which === 'from' ? $('valFrom') : $('valTo');
+  val.textContent = city || (which === 'from' ? '选择出发城市' : '选择到达城市');
+  val.classList.toggle('empty', !city);
+}
+
+/* ---- 城市内联下拉组件 ---- */
+var ddPanel = null, ddFor = null;
+function buildDropdown(){
+  ddPanel = document.createElement('div');
+  ddPanel.className = 'citydd';
+  ddPanel.innerHTML =
+    '<div class="dd-search"><span style="color:#a5a094">🔍</span><input type="text" placeholder="搜索城市名" autocomplete="off"></div>' +
+    '<div class="dd-list"></div>';
+  ddPanel.querySelector('input').addEventListener('input', function(){ renderDDList(this.value.trim()); });
+  ddPanel.addEventListener('click', function(e){ e.stopPropagation(); });
+}
+function renderDDList(keyword){
+  var list = ddPanel.querySelector('.dd-list');
+  var html = '', total = 0;
+  GROUPS.forEach(function(g){
+    var cities = g[1].filter(function(c){ return !keyword || c.indexOf(keyword) >= 0; });
+    if (!cities.length) return;
+    total += cities.length;
+    html += '<div class="dd-group">' + g[0] + '</div><div class="dd-cities">';
+    cities.forEach(function(c){
+      html += '<button type="button" class="dd-city" data-c="' + c + '">' + c + '</button>';
+    });
+    html += '</div>';
+  });
+  if (!total) {
+    html = '<div class="dd-empty"><b>「' + esc(keyword) + '」暂未覆盖</b><br>v2 走廊库只有 34 座已核实的城市（沪京主线 + 浙江全省 + 山东、京津冀支线），先在这些范围里试试吧。</div>';
+  }
+  list.innerHTML = html;
+}
+function openDropdown(which){
+  var field = which === 'from' ? $('cfFrom') : $('cfTo');
+  if (ddFor === which && ddPanel.parentNode === field) { closeDropdown(); return; }
+  ddFor = which;
+  var other = which === 'from' ? $('cfTo') : $('cfFrom');
+  other.classList.remove('open');
+  field.classList.add('open');
+  renderDDList('');
+  var input = ddPanel.querySelector('input');
+  input.value = '';
+  field.appendChild(ddPanel);
+  setTimeout(function(){ input.focus(); }, 50);
+}
+function closeDropdown(){
+  if (ddPanel && ddPanel.parentNode) ddPanel.parentNode.removeChild(ddPanel);
+  $('cfFrom').classList.remove('open');
+  $('cfTo').classList.remove('open');
+  ddFor = null;
+}
+document.addEventListener('click', function(){ if (ddFor) closeDropdown(); });
+
+/* ================= 首页渲染 ================= */
+function renderFeatured(){
+  var html = '';
+  FEATURED.forEach(function(f, i){
+    html += '<button type="button" class="feat-card" data-i="' + i + '">' +
+      '<div class="fc-icon">' + f.icon + '</div>' +
+      '<div class="fc-main"><div class="fc-route">' + f.from + '<span class="arr">→</span>' + f.to + '</div>' +
+      '<div class="fc-desc">' + f.desc + '</div></div>' +
+      '<div class="fc-go">›</div></button>';
+  });
+  $('featList').innerHTML = html;
+}
+
+function renderHome(){
+  show('page-home');
+  setCityField('from', homeState.from);
+  setCityField('to', homeState.to);
+  var btns = $('homePace').querySelectorAll('button');
+  btns.forEach(function(b){ b.classList.toggle('on', b.dataset.p === homeState.pace); });
+  renderRecent();
+  window.scrollTo(0, 0);
+}
+
+/* ---- 最近查询（localStorage，仅本机） ---- */
+function loadRecent(){
+  try { return JSON.parse(localStorage.getItem('manba-recent') || '[]'); } catch(e){ return []; }
+}
+function saveRecent(from, to, pace){
+  var list = loadRecent().filter(function(r){ return !(r.f === from && r.t === to); });
+  list.unshift({f:from, t:to, p:pace});
+  try { localStorage.setItem('manba-recent', JSON.stringify(list.slice(0, 5))); } catch(e){}
+}
+function renderRecent(){
+  var list = loadRecent();
+  var box = $('recentBox');
+  if (!list.length) { box.hidden = true; return; }
+  box.hidden = false;
+  $('recentRow').innerHTML = list.map(function(r, i){
+    return '<button type="button" class="rc-chip" data-i="' + i + '"><b>' + esc(r.f) + '</b> → ' + esc(r.t) + ' · ' + (PACES[r.p] ? PACES[r.p].label : '均衡') + '</button>';
+  }).join('');
+}
+
+function submitHome(){
+  if (ddFor) closeDropdown();
+  var from = homeState.from, to = homeState.to;
+  if (!from || !to) { toast('请先选择起点和终点'); return; }
+  if (from === to) { toast('起点和终点不能是同一座城'); return; }
+  var date = $('dateInput').value;
+  go(planHash(from, to, homeState.pace, date));
+}
+
+/* ================= 方案页渲染 ================= */
+function planCtx(q){
+  var from = q.from, to = q.to;
+  if (!CITY[from] || !CITY[to] || from === to) return null;
+  var pace = PACES[q.pace] ? q.pace : 'bal';
+  var path = findPath(from, to);
+  if (!path) return {noroute:true, from:from, to:to};
+  return {from:from, to:to, pace:pace, date:q.date || '', path:path, days:buildDays(path, pace)};
+}
+
+function renderPlan(ctx){
+  show('page-plan');
+  saveRecent(ctx.from, ctx.to, ctx.pace);
+  var days = ctx.days, path = ctx.path;
+  var nights = days.length - 1;
+  $('planTitle').textContent = ctx.from + ' → ' + ctx.to + ' · ' + PACES[ctx.pace].label + '版';
+
+  var transport = 0, hardCount = 0;
+  path.forEach(function(st){ var e = EDGES[st.ei]; transport += e.cost; if (e.level === 3 || e.conf !== '高') hardCount++; });
+  var cityCount = {};
+  cityCount[ctx.from] = 1;
+  path.forEach(function(st){ cityCount[st.to] = 1; });
+  var budget = Math.round((nights*170 + days.length*100 + transport + 500)/100)*100;
+
+  $('sumChips').innerHTML =
+    '<span class="chip"><b>' + days.length + '</b>天</span>' +
+    '<span class="chip"><b>' + nights + '</b>晚</span>' +
+    '<span class="chip"><b>' + Object.keys(cityCount).length + '</b>座城</span>' +
+    '<span class="chip">车费≈<b>' + transport + '</b>元</span>' +
+    '<span class="chip">总预算≈<b>' + budget + '</b>元</span>' +
+    (hardCount ? '<span class="chip"><b>' + hardCount + '</b>段硬/需复核</span>' : '');
+
+  var warns = [];
+  path.forEach(function(st){
+    var e = EDGES[st.ei];
+    if (e.level === 3 || e.conf !== '高') warns.push('<li><b>' + esc(st.from) + '—' + esc(st.to) + '：</b>' + esc(e.note) + (e.conf !== '高' ? '（信心' + e.conf + '，临行前复核）' : '') + '</li>');
+  });
+  $('warnBox').innerHTML = warns.length
+    ? '<div class="warn"><b>这条线的硬路段/需复核段：</b><ul>' + warns.join('') + '</ul>共同对策：前一晚用高德实时公交把次日每段查好再睡；班车段早到站买票；备干粮和水。</div>'
+    : '';
+
+  var html = '';
+  days.forEach(function(d, i){
+    var hardHit = d.steps.some(function(st){ var e = EDGES[st.ei]; return e.level === 3 || e.conf !== '高'; });
+    var warnLine = '';
+    if (hardHit) {
+      var hit = d.steps.filter(function(st){ var e = EDGES[st.ei]; return e.level === 3 || e.conf !== '高'; })[0];
+      warnLine = '<div class="dc-warn">⚠ ' + esc(hit.from) + '→' + esc(hit.to) + ' ' + esc(EDGES[hit.ei].conf !== '高' ? '信心' + EDGES[hit.ei].conf + ' · 临行前复核' : '定点班次 · 提前到站') + '</div>';
+    }
+    html += '<button type="button" class="day-card t-' + d.type + '" data-d="' + i + '">' +
+      '<div class="dc-day">D' + (i+1) + '</div>' +
+      '<div class="dc-mid">' +
+        '<div class="dc-line1"><span class="dc-type">' + TYPE_LABEL[d.type] + '</span>' +
+        '<span class="dc-hours">' + (d.hours ? '车程≈' + fmtHours(d.hours) : '不赶路') + '</span>' +
+        (ctx.date ? '<span class="dc-date">' + dateOf(ctx.date, i) + '</span>' : '') + '</div>' +
+        '<div class="dc-chain">' + esc(d.chain.join(' → ')) + '</div>' +
+        warnLine +
+      '</div><div class="dc-arr">›</div></button>';
+  });
+  $('daysGrid').innerHTML = html;
+
+  var lodging = nights * 170, food = days.length * 100;
+  $('budgetTable').innerHTML =
+    '<tr><th>项目</th><th>估算</th></tr>' +
+    '<tr><td>城际+市内车费</td><td>≈' + transport + '元</td></tr>' +
+    '<tr><td>住宿 × ' + nights + '晚</td><td>' + (nights*140) + '-' + (nights*200) + '元</td></tr>' +
+    '<tr><td>餐饮 × ' + days.length + '天</td><td>≈' + food + '元</td></tr>' +
+    '<tr><td>备用金</td><td>500元</td></tr>' +
+    '<tr><td>合计</td><td>≈' + budget + '元</td></tr>';
+
+  var bar = document.querySelector('.pacebar');
+  bar.querySelectorAll('button').forEach(function(b){ b.classList.toggle('on', b.dataset.p === ctx.pace); });
+  window.scrollTo(0, 0);
+}
+
+/* ================= 详情页渲染 ================= */
+function renderDay(ctx, dIdx){
+  var d = ctx.days[dIdx];
+  if (!d) { go(planHash(ctx.from, ctx.to, ctx.pace, ctx.date)); return; }
+  show('page-day');
+  $('dayTitle').textContent = 'D' + (dIdx+1) + ' · ' + esc(d.city);
+  var city = d.city, ct = CONTENT[city] || {intro:'', sights:[], food:[]};
+  var html = '<div class="dh"><span class="dc-day" style="font-size:16px;">D' + (dIdx+1) + '</span>' +
+    '<span class="dc-type" style="background:' + (d.type==='rest' ? 'var(--green)' : d.type==='move' ? 'var(--red)' : 'var(--blue)') + '">' + TYPE_LABEL[d.type] + '</span>' +
+    (ctx.date ? '<span class="dh-date">' + dateOf(ctx.date, dIdx) + '</span>' : '') + '</div>';
+  html += '<div class="dh-chain">' + esc(d.chain.join(' → ')) + '</div>';
+  html += '<div class="dh-hours">' + (d.hours ? '全程车程≈' + fmtHours(d.hours) + ' · 当晚住' + esc(city) : '不赶路 · 当晚住' + esc(city)) + '</div>';
+
+  if (d.type === 'rest') {
+    html += '<div class="rest-tip">休整日：市内公交/地铁随意坐，顺便洗衣、补给、把后面几天的班次查好。</div>';
+  } else {
+    d.steps.forEach(function(st){
+      var e = EDGES[st.ei];
+      var segCls = e.level === 3 ? 'hard' : (e.level === 2 ? 'mid' : 'soft');
+      html += '<div class="seg ' + segCls + '">' +
+        '<div class="seg-route">' + esc(st.from) + ' → ' + esc(st.to) + '</div>' +
+        '<div class="seg-meta">' +
+          '<span class="m">' + MODE_LABEL[e.mode] + '</span>' +
+          '<span class="m l' + e.level + '">' + (e.level === 3 ? '硬路段' : e.level === 2 ? '中等' : '轻松') + '</span>' +
+          '<span class="m">≈' + fmtHours(e.hours) + '</span>' +
+          '<span class="m">≈' + e.cost + '元</span>' +
+        '</div>' +
+        '<div class="seg-note">' + esc(e.note) + '</div>' +
+        (e.conf !== '高' ? '<div class="seg-conf bad">信心等级：' + e.conf + ' · 临行前务必用实时公交或车站电话复核</div>' : '') +
+      '</div>';
+    });
+  }
+
+  html += '<div class="stay">' +
+    '<div class="stay-h"><span class="city">' + esc(city) + '</span><span class="tag">当晚住宿</span></div>' +
+    (ct.intro ? '<div class="stay-intro">' + esc(ct.intro) + '</div>' : '');
+  if (ct.sights && ct.sights.length) {
+    html += '<div class="stay-block"><div class="bt">玩点</div><ul>';
+    ct.sights.forEach(function(s){ html += '<li>' + esc(s) + '</li>'; });
+    html += '</ul></div>';
+  }
+  if (ct.food && ct.food.length) {
+    html += '<div class="stay-block foods"><div class="bt">美食</div><ul>';
+    ct.food.forEach(function(s){ html += '<li>' + esc(s) + '</li>'; });
+    html += '</ul></div>';
+  }
+  html += '</div>';
+  $('dayBody').innerHTML = html;
+  window.scrollTo(0, 0);
+}
+
+/* ================= 全屏地图页 ================= */
+var fMap = null, fLayers = null;
+function renderMap(ctx){
+  show('page-map');
+  $('mapTitle').textContent = ctx.from + ' → ' + ctx.to + ' · 路线地图';
+  if (!fMap) {
+    fMap = L.map('fullMap', {scrollWheelZoom:true});
+    L.tileLayer('https://webrd0{s}.is.autonavi.com/appmaptile?lang=zh_cn&size=1&scale=1&style=8&x={x}&y={y}&z={z}', {
+      subdomains:['1','2','3','4'], maxZoom:18, attribution:'&copy; 高德地图'
+    }).addTo(fMap);
+    fLayers = L.layerGroup().addTo(fMap);
+  }
+  fLayers.clearLayers();
+  var bounds = [];
+  ctx.path.forEach(function(st){
+    var e = EDGES[st.ei];
+    var A = CITY[st.from], B = CITY[st.to];
+    L.polyline([[A.lat,A.lng],[B.lat,B.lng]], {color:COLORS[e.level], weight:4, opacity:.85}).addTo(fLayers);
+    bounds.push([A.lat,A.lng],[B.lat,B.lng]);
+  });
+  var dayNo = {};
+  ctx.days.forEach(function(d, i){ if (!(d.city in dayNo)) dayNo[d.city] = i + 1; });
+  Object.keys(dayNo).forEach(function(c){
+    var ct = CITY[c], cc = CONTENT[c] || {sights:[],food:[]};
+    var icon = L.divIcon({className:'', html:'<div class="city-pin" style="width:22px;height:22px;">' + dayNo[c] + '</div>', iconSize:[22,22], iconAnchor:[11,11]});
+    var pop = '<b>' + c + ' · D' + dayNo[c] + '</b><br>玩点：' + (cc.sights && cc.sights.length ? cc.sights.join('；') : CITY[c].sights) +
+              '<br>美食：' + (cc.food && cc.food.length ? cc.food.join('；') : CITY[c].food);
+    L.marker([ct.lat, ct.lng], {icon:icon}).addTo(fLayers).bindPopup(pop);
+  });
+  setTimeout(function(){
+    fMap.invalidateSize();
+    if (bounds.length) fMap.fitBounds(bounds, {padding:[36,36]});
+  }, 60);
+}
+
+/* ================= 走廊图页（全部核实走廊） ================= */
+var nMap = null;
+function renderNetwork(){
+  show('page-network');
+  if (!nMap) {
+    nMap = L.map('netMap', {scrollWheelZoom:true});
+    L.tileLayer('https://webrd0{s}.is.autonavi.com/appmaptile?lang=zh_cn&size=1&scale=1&style=8&x={x}&y={y}&z={z}', {
+      subdomains:['1','2','3','4'], maxZoom:18, attribution:'&copy; 高德地图'
+    }).addTo(nMap);
+    var bounds = [];
+    EDGES.forEach(function(e){
+      var A = CITY[e.a], B = CITY[e.b];
+      L.polyline([[A.lat,A.lng],[B.lat,B.lng]], {color:COLORS[e.level], weight:4, opacity:.8})
+        .addTo(nMap)
+        .bindPopup('<b>' + esc(e.a) + ' — ' + esc(e.b) + '</b><br>' + MODE_LABEL[e.mode] + ' · ≈' + e.hours + 'h · ≈' + e.cost + '元<br>' + esc(e.note) + (e.conf !== '高' ? '<br>信心：' + e.conf + ' · 临行前复核' : ''));
+      bounds.push([A.lat,A.lng],[B.lat,B.lng]);
+    });
+    Object.keys(CITY).forEach(function(c){
+      var ct = CITY[c], cc = CONTENT[c] || {sights:[], food:[]};
+      var icon = L.divIcon({className:'', html:'<div class="city-pin" style="width:14px;height:14px;background:var(--deep);"></div>', iconSize:[14,14], iconAnchor:[7,7]});
+      var pop = '<b>' + esc(c) + '</b>' + (cc.intro ? '<br>' + esc(cc.intro) : '') +
+        '<br>玩点：' + esc((cc.sights || []).join('；')) + '<br>美食：' + esc((cc.food || []).join('；'));
+      L.marker([ct.lat, ct.lng], {icon:icon}).addTo(nMap).bindPopup(pop);
+    });
+    $('netSub').textContent = Object.keys(CITY).length + ' 城 · ' + EDGES.length + ' 条逐条核实的走廊 · 点线看班次来源、点圆点看吃玩';
+    setTimeout(function(){ nMap.invalidateSize(); if (bounds.length) nMap.fitBounds(bounds, {padding:[30,30]}); }, 60);
+  } else {
+    setTimeout(function(){ nMap.invalidateSize(); }, 60);
+  }
+  window.scrollTo(0, 0);
+}
+
+/* ================= 主路由分发 ================= */
+function route(){
+  var r = parseHash();
+  var isTop = (r.route === '/' || r.route === '' || r.route === '/network' || r.route === '/me');
+  $('tabbar').classList.toggle('on', isTop);
+  if (isTop) {
+    $('tabbar').querySelectorAll('.tb-item').forEach(function(b){
+      b.classList.toggle('on', b.dataset.tab === (r.route === '' ? '/' : r.route));
+    });
+  }
+  if (r.route === '/' || r.route === '') { renderHome(); return; }
+  if (r.route === '/network') { renderNetwork(); return; }
+  if (r.route === '/me') { show('page-me'); window.scrollTo(0,0); return; }
+  if (r.route === '/plan' || r.route === '/day' || r.route === '/map') {
+    var ctx = planCtx(r.q);
+    if (!ctx) { go('#/'); return; }
+    if (ctx.noroute) {
+      homeState.from = ctx.from; homeState.to = ctx.to;
+      $('nrTitle').textContent = ctx.from + ' → ' + ctx.to + ' 暂时连不上';
+      show('page-noroute'); return;
+    }
+    if (r.route === '/plan') { renderPlan(ctx); return; }
+    if (r.route === '/day') { renderDay(ctx, parseInt(r.q.d || '0', 10)); return; }
+    if (r.route === '/map') { renderMap(ctx); return; }
+  }
+  go('#/');
+}
+
+/* ================= 事件绑定 ================= */
+function bindEvents(){
+  $('cfFrom').addEventListener('click', function(e){ e.stopPropagation(); openDropdown('from'); });
+  $('cfTo').addEventListener('click', function(e){ e.stopPropagation(); openDropdown('to'); });
+  $('swapBtn').addEventListener('click', function(e){
+    e.stopPropagation();
+    var f = homeState.from; homeState.from = homeState.to; homeState.to = f;
+    setCityField('from', homeState.from); setCityField('to', homeState.to);
+  });
+  $('homePace').addEventListener('click', function(e){
+    var b = e.target.closest('button'); if (!b) return;
+    homeState.pace = b.dataset.p;
+    this.querySelectorAll('button').forEach(function(x){ x.classList.toggle('on', x === b); });
+  });
+  $('goBtn').addEventListener('click', submitHome);
+  $('featList').addEventListener('click', function(e){
+    var card = e.target.closest('.feat-card'); if (!card) return;
+    var f = FEATURED[+card.dataset.i];
+    homeState.from = f.from; homeState.to = f.to; homeState.pace = 'bal';
+    go(planHash(f.from, f.to, 'bal', $('dateInput').value));
+  });
+
+  /* 下拉内点击城市 */
+  document.addEventListener('click', function(e){
+    var cityBtn = e.target.closest && e.target.closest('.dd-city');
+    if (!cityBtn || !ddFor) return;
+    var c = cityBtn.dataset.c;
+    var which = ddFor;
+    setCityField(which, c);
+    closeDropdown();
+    if (which === 'from' && !homeState.to) openDropdown('to');
+  }, true);
+
+  $('planBack').addEventListener('click', function(){ go('#/'); });
+  $('nrBack').addEventListener('click', function(){ go('#/'); });
+  $('nrBtn').addEventListener('click', function(){ go('#/'); });
+  $('shareBtn').addEventListener('click', function(){
+    var url = location.href;
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      navigator.clipboard.writeText(url).then(function(){ toast('链接已复制，去分享吧'); }, function(){ toast(url); });
+    } else { toast('链接见地址栏'); }
+  });
+  $('mapLink').addEventListener('click', function(){
+    var r = parseHash();
+    go('#/map?from=' + encodeURIComponent(r.q.from) + '&to=' + encodeURIComponent(r.q.to) + '&pace=' + (r.q.pace||'bal') + (r.q.date ? '&date=' + r.q.date : ''));
+  });
+  $('mapBack').addEventListener('click', function(){ history.back(); });
+  $('dayBack').addEventListener('click', function(){ history.back(); });
+  $('daysGrid').addEventListener('click', function(e){
+    var card = e.target.closest('.day-card'); if (!card) return;
+    var r = parseHash();
+    go('#/day?from=' + encodeURIComponent(r.q.from) + '&to=' + encodeURIComponent(r.q.to) +
+       '&pace=' + (r.q.pace||'bal') + (r.q.date ? '&date=' + r.q.date : '') + '&d=' + card.dataset.d);
+  });
+
+  /* 底部节奏条：即时重算，不返回首页 */
+  document.querySelector('.pacebar .pb-in').addEventListener('click', function(e){
+    var b = e.target.closest('button'); if (!b) return;
+    var r = parseHash();
+    if (r.route !== '/plan') return;
+    var h = planHash(r.q.from, r.q.to, b.dataset.p, r.q.date);
+    history.replaceState(null, '', h);
+    route();
+    toast('已切换为「' + PACES[b.dataset.p].label + '」节奏');
+  });
+
+  /* 底部标签栏 */
+  $('tabbar').addEventListener('click', function(e){
+    var b = e.target.closest('.tb-item'); if (!b) return;
+    go('#' + b.dataset.tab);
+  });
+
+  /* 最近查询 */
+  $('recentRow').addEventListener('click', function(e){
+    var chip = e.target.closest('.rc-chip'); if (!chip) return;
+    var r = loadRecent()[+chip.dataset.i]; if (!r) return;
+    homeState.from = r.f; homeState.to = r.t; homeState.pace = r.p || 'bal';
+    go(planHash(r.f, r.t, r.p || 'bal', $('dateInput').value));
+  });
+  $('clearRecent').addEventListener('click', function(){
+    try { localStorage.removeItem('manba-recent'); } catch(e){}
+    renderRecent();
+    toast('已清除最近查询');
+  });
+}
+
+/* ================= 启动 ================= */
+if ('serviceWorker' in navigator) {
+  navigator.serviceWorker.register('sw.js').catch(function(){});
+}
+buildDropdown();
+renderFeatured();
+bindEvents();
+/* 日期最小值=今天 */
+(function(){
+  var d = new Date();
+  var s = d.getFullYear() + '-' + String(d.getMonth()+1).padStart(2,'0') + '-' + String(d.getDate()).padStart(2,'0');
+  $('dateInput').min = s;
+})();
+/* 按时段问候 */
+(function(){
+  var h = new Date().getHours();
+  var g = h < 5 ? '夜深了，' : h < 11 ? '上午好，' : h < 13 ? '中午好，' : h < 18 ? '下午好，' : '晚上好，';
+  $('greetLine').textContent = g + '今天慢慢去哪座城？';
+})();
+window.addEventListener('hashchange', route);
+route();
+</script>
+</body>
+</html>
