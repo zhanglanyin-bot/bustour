@@ -31,16 +31,16 @@
   .topbar .tb-title{font-size:15px;font-weight:600;flex:1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
   .topbar .tb-act{background:none;border:1px solid rgba(255,255,255,.4);color:#fff;font-size:12px;border-radius:14px;padding:3px 10px;}
 
-  /* ===== 首页 ===== */
-  .hero{background:var(--deep);color:#fff;padding:30px 20px 58px;}
-  .hero h1{font-size:26px;font-weight:700;letter-spacing:2px;}
-  .hero h1 .en{font-size:13px;font-weight:400;opacity:.7;margin-left:8px;letter-spacing:3px;}
-  .hero .tag{margin-top:8px;font-size:13px;opacity:.85;line-height:1.7;}
-  .hero .chips{display:flex;flex-wrap:wrap;gap:8px;margin-top:14px;}
-  .hero .chip{background:rgba(255,255,255,.12);border:1px solid rgba(255,255,255,.25);border-radius:8px;padding:3px 10px;font-size:12px;}
-  .hero .chip b{font-size:13px;margin-right:2px;}
+  /* ===== 首页（App 式头部） ===== */
+  .apphead{background:var(--deep);color:#fff;padding:16px 20px 56px;}
+  .apphead .ah-top{display:flex;align-items:center;gap:8px;}
+  .apphead .brand{font-size:22px;font-weight:700;letter-spacing:2px;}
+  .apphead .brand .en{font-size:12px;font-weight:400;opacity:.7;margin-left:6px;letter-spacing:3px;}
+  .apphead .ah-hi{margin-top:12px;font-size:16px;font-weight:600;}
+  .apphead .ah-sub{margin-top:3px;font-size:12px;opacity:.8;}
+  .apphead.small{padding:16px 20px 14px;}
 
-  .home-body{padding:0 16px 28px;margin-top:-38px;flex:1;}
+  .home-body{padding:0 16px 88px;margin-top:-38px;flex:1;}
 
   .search-card{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:16px;box-shadow:0 2px 10px rgba(31,77,58,.08);}
   .cityfield{position:relative;border:1px solid var(--line);border-radius:10px;background:var(--chip);padding:10px 14px;display:flex;align-items:center;cursor:pointer;}
@@ -90,7 +90,37 @@
   .fc-desc{font-size:12px;color:var(--sub);margin-top:1px;}
   .fc-go{color:var(--deep);font-size:16px;}
 
-  .home-foot{margin-top:24px;font-size:11px;color:var(--sub);line-height:1.9;border-top:1px solid var(--line);padding-top:14px;}
+  .home-mini{margin-top:26px;text-align:center;font-size:11px;color:#a5a094;}
+
+  /* 最近查询 */
+  .recent{margin-top:16px;}
+  .recent .rc-h{font-size:12px;color:var(--sub);margin-bottom:6px;}
+  .recent .rc-row{display:flex;gap:8px;overflow-x:auto;padding-bottom:4px;-webkit-overflow-scrolling:touch;}
+  .rc-chip{flex:none;border:1px solid var(--line);background:var(--card);border-radius:16px;padding:6px 14px;font-size:13px;color:var(--ink);}
+  .rc-chip:active{border-color:var(--deep);}
+  .rc-chip b{color:var(--deep);}
+
+  /* 底部标签栏（App 式） */
+  .tabbar{display:none;position:fixed;left:50%;transform:translateX(-50%);bottom:0;width:100%;max-width:560px;background:var(--card);border-top:1px solid var(--line);z-index:50;padding-bottom:env(safe-area-inset-bottom);}
+  .tabbar.on{display:flex;}
+  .tabbar .tb-item{flex:1;background:none;border:none;padding:8px 0 7px;display:flex;flex-direction:column;align-items:center;gap:2px;font-size:11px;color:var(--sub);}
+  .tabbar .tb-item .ti{font-size:17px;line-height:1.15;filter:grayscale(1);opacity:.65;}
+  .tabbar .tb-item.on{color:var(--deep);font-weight:600;}
+  .tabbar .tb-item.on .ti{filter:none;opacity:1;}
+
+  /* 我的页 */
+  .me-body{padding:14px 16px 90px;}
+  .me-card{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:14px 16px;margin-bottom:12px;}
+  .me-card .bt{font-size:14px;font-weight:700;margin-bottom:6px;}
+  .me-card p{font-size:13px;color:var(--ink);line-height:1.8;}
+  .me-card p.dim{color:var(--sub);font-size:12px;}
+  .me-btn{display:inline-block;margin-top:8px;background:var(--deep);color:#fff;border:none;border-radius:8px;padding:8px 16px;font-size:13px;text-decoration:none;}
+  .me-btn.ghost{background:var(--chip);color:var(--ink);border:1px solid var(--line);}
+  .me-ver{margin-top:18px;text-align:center;font-size:11px;color:#a5a094;}
+
+  /* 走廊图页 */
+  #page-network .map-wrap{flex:1;position:relative;}
+  #netMap{position:absolute;inset:0;background:#e8e6df;}
 
   /* ===== 方案页 ===== */
   .plan-body{padding:14px 16px 90px;}
@@ -197,15 +227,10 @@
 
   <!-- ============ 首页 ============ -->
   <div class="page" id="page-home">
-    <div class="hero">
-      <h1>慢巴<span class="en">BUSSLOW</span></h1>
-      <div class="tag">城际公交+地铁慢行规划器<br>不坐高铁，一座城一座城地走</div>
-      <div class="chips">
-        <span class="chip"><b>34</b>座城市</span>
-        <span class="chip"><b>36</b>条核实走廊</span>
-        <span class="chip"><b>3</b>档节奏</span>
-        <span class="chip">离线可用 · 可装到手机</span>
-      </div>
+    <div class="apphead">
+      <div class="ah-top"><div class="brand">慢巴<span class="en">BUSSLOW</span></div></div>
+      <div class="ah-hi" id="greetLine">你好，今天慢慢去哪座城？</div>
+      <div class="ah-sub">不坐高铁 · 一座城一座城地走</div>
     </div>
     <div class="home-body">
       <div class="search-card">
@@ -232,16 +257,18 @@
         <p class="search-note">路线只在「已核实走廊图」上搜索，每一段都真实存在；查不到连通说明走廊库还没覆盖，宁可没有也不编。</p>
       </div>
 
+      <div class="recent" id="recentBox" hidden>
+        <div class="rc-h">最近查询</div>
+        <div class="rc-row" id="recentRow"></div>
+      </div>
+
       <div class="feat">
         <h2>精选走廊</h2>
         <div class="lead">逐条核实的经典走法，点一下直接生成（均衡节奏）</div>
         <div id="featList"></div>
       </div>
 
-      <div class="home-foot">
-        慢巴 BusSlow v2 · 走廊库更新于 2026-08-21 · 华东+浙江+华北 34 城。所有走廊标注信心等级与来源；标「需复核」的段临行前务必用高德/百度实时公交或车站电话确认。规划器只做事实层搜索，不编路线。<br>
-        核心来源：交通运输部（京津跨城公交）· 齐鲁网（济德/德衡城际）· 济南市政府（济泰便民快巴）· 济宁市政府（B1/C605、曲阜班车公示）· 山东交运 · 北京本地宝（805快）· 人民网（京冀跨市域公交）· 天津客运西站 · 新华网（涿州838）· 中青在线/解放日报（沪京公交穿越）· 杭州网/潮新闻（杭州南站关停迁站、宁波⇌义乌站点巴士）· 上观新闻（杭海城际）· 宁波新闻网（甬舟班线加密）· 车次网/欣欣旅游时刻表（浙江段班车）等。
-      </div>
+      <div class="home-mini">慢巴 BusSlow · 不编路线，只走核实过的走廊 · 来源与说明见「我的」</div>
     </div>
   </div>
 
@@ -305,9 +332,66 @@
     <div class="nr-body">
       <div class="nr-ico">🚌</div>
       <div class="nr-title" id="nrTitle">这两座城暂时连不上</div>
-      <div class="nr-desc">走廊库还没覆盖这对起终点——规划器只在已核实的走廊上搜索，宁可没有也不编。<br>试试把起终点换到沪京主线，或山东、京津冀支线上。</div>
+      <div class="nr-desc">走廊库还没覆盖这对起终点——规划器只在已核实的走廊上搜索，宁可没有也不编。<br>试试把起终点换到沪京主线、浙江全省，或山东、京津冀支线上。</div>
       <button class="nr-btn" id="nrBtn" type="button">回首页改条件</button>
     </div>
+  </div>
+
+  <!-- ============ 走廊图页（浏览全部核实走廊） ============ -->
+  <div class="page" id="page-network">
+    <div class="apphead small">
+      <div class="ah-top"><div class="brand">走廊图<span class="en">NETWORK</span></div></div>
+      <div class="ah-sub" id="netSub">34 城 · 36 条逐条核实的走廊 · 点城市圆点看吃玩</div>
+    </div>
+    <div class="map-wrap">
+      <div id="netMap"></div>
+      <div class="map-legend">
+        <span><span class="sw" style="background:var(--green)"></span>轻松段</span>
+        <span><span class="sw" style="background:var(--amber)"></span>中等段</span>
+        <span><span class="sw" style="background:var(--red)"></span>硬段/破例段</span><br>
+        每条线都真实存在 · 点城市圆点看吃玩
+      </div>
+    </div>
+  </div>
+
+  <!-- ============ 我的页 ============ -->
+  <div class="page" id="page-me">
+    <div class="apphead small">
+      <div class="ah-top"><div class="brand">我的<span class="en">MINE</span></div></div>
+    </div>
+    <div class="me-body">
+      <div class="me-card">
+        <div class="bt">关于慢巴</div>
+        <p>慢巴只做一件事：把真实存在的城际公交/地铁走廊，拼成一份不赶路的慢行方案。不坐高铁、不编路线；走廊库没覆盖的起终点，宁可说「连不上」。</p>
+      </div>
+      <div class="me-card">
+        <div class="bt">走廊库与来源</div>
+        <p>更新于 2026-08-21 · 华东+浙江+华北 34 城 · 36 条走廊。所有走廊标注信心等级；标「需复核」的段，临行前用高德/百度实时公交或车站电话确认。</p>
+        <p class="dim">核心来源：交通运输部 · 齐鲁网 · 济南市政府 · 济宁市政府 · 山东交运 · 北京本地宝 · 人民网 · 天津客运西站 · 新华网 · 中青在线/解放日报 · 杭州网/潮新闻 · 上观新闻 · 宁波新闻网 · 车次网/欣欣旅游时刻表等。</p>
+      </div>
+      <div class="me-card">
+        <div class="bt">线路报错</div>
+        <p>发现某段走廊没车了？提一个 issue，我们看到后会下线或降级该走廊。</p>
+        <a class="me-btn" href="https://github.com/zhanglanyin-bot/bustour/issues/new" target="_blank" rel="noopener">去提 issue</a>
+      </div>
+      <div class="me-card">
+        <div class="bt">装到手机</div>
+        <p>用浏览器打开本站，菜单里选「添加到主屏幕」，就能像 App 一样全屏打开、离线可用。</p>
+      </div>
+      <div class="me-card">
+        <div class="bt">最近查询</div>
+        <p class="dim">首页的「最近查询」只存在你这台设备上。</p>
+        <button class="me-btn ghost" id="clearRecent" type="button">清除最近查询</button>
+      </div>
+      <div class="me-ver">慢巴 BusSlow v2.1 · 2026-08-21</div>
+    </div>
+  </div>
+
+  <!-- ============ 底部标签栏 ============ -->
+  <div class="tabbar" id="tabbar">
+    <button class="tb-item on" data-tab="/" type="button"><span class="ti">🏠</span>首页</button>
+    <button class="tb-item" data-tab="/network" type="button"><span class="ti">🗺️</span>走廊图</button>
+    <button class="tb-item" data-tab="/me" type="button"><span class="ti">👤</span>我的</button>
   </div>
 
 </div>
@@ -556,7 +640,7 @@ function planHash(from, to, pace, date){
 }
 function go(hash){ location.hash = hash; }
 function show(id){
-  ['page-home','page-plan','page-day','page-map','page-noroute'].forEach(function(p){
+  ['page-home','page-plan','page-day','page-map','page-noroute','page-network','page-me'].forEach(function(p){
     $(p).classList.toggle('on', p === id);
   });
 }
@@ -640,7 +724,27 @@ function renderHome(){
   setCityField('to', homeState.to);
   var btns = $('homePace').querySelectorAll('button');
   btns.forEach(function(b){ b.classList.toggle('on', b.dataset.p === homeState.pace); });
+  renderRecent();
   window.scrollTo(0, 0);
+}
+
+/* ---- 最近查询（localStorage，仅本机） ---- */
+function loadRecent(){
+  try { return JSON.parse(localStorage.getItem('manba-recent') || '[]'); } catch(e){ return []; }
+}
+function saveRecent(from, to, pace){
+  var list = loadRecent().filter(function(r){ return !(r.f === from && r.t === to); });
+  list.unshift({f:from, t:to, p:pace});
+  try { localStorage.setItem('manba-recent', JSON.stringify(list.slice(0, 5))); } catch(e){}
+}
+function renderRecent(){
+  var list = loadRecent();
+  var box = $('recentBox');
+  if (!list.length) { box.hidden = true; return; }
+  box.hidden = false;
+  $('recentRow').innerHTML = list.map(function(r, i){
+    return '<button type="button" class="rc-chip" data-i="' + i + '"><b>' + esc(r.f) + '</b> → ' + esc(r.t) + ' · ' + (PACES[r.p] ? PACES[r.p].label : '均衡') + '</button>';
+  }).join('');
 }
 
 function submitHome(){
@@ -664,6 +768,7 @@ function planCtx(q){
 
 function renderPlan(ctx){
   show('page-plan');
+  saveRecent(ctx.from, ctx.to, ctx.pace);
   var days = ctx.days, path = ctx.path;
   var nights = days.length - 1;
   $('planTitle').textContent = ctx.from + ' → ' + ctx.to + ' · ' + PACES[ctx.pace].label + '版';
@@ -812,10 +917,51 @@ function renderMap(ctx){
   }, 60);
 }
 
+/* ================= 走廊图页（全部核实走廊） ================= */
+var nMap = null;
+function renderNetwork(){
+  show('page-network');
+  if (!nMap) {
+    nMap = L.map('netMap', {scrollWheelZoom:true});
+    L.tileLayer('https://webrd0{s}.is.autonavi.com/appmaptile?lang=zh_cn&size=1&scale=1&style=8&x={x}&y={y}&z={z}', {
+      subdomains:['1','2','3','4'], maxZoom:18, attribution:'&copy; 高德地图'
+    }).addTo(nMap);
+    var bounds = [];
+    EDGES.forEach(function(e){
+      var A = CITY[e.a], B = CITY[e.b];
+      L.polyline([[A.lat,A.lng],[B.lat,B.lng]], {color:COLORS[e.level], weight:4, opacity:.8})
+        .addTo(nMap)
+        .bindPopup('<b>' + esc(e.a) + ' — ' + esc(e.b) + '</b><br>' + MODE_LABEL[e.mode] + ' · ≈' + e.hours + 'h · ≈' + e.cost + '元<br>' + esc(e.note) + (e.conf !== '高' ? '<br>信心：' + e.conf + ' · 临行前复核' : ''));
+      bounds.push([A.lat,A.lng],[B.lat,B.lng]);
+    });
+    Object.keys(CITY).forEach(function(c){
+      var ct = CITY[c], cc = CONTENT[c] || {sights:[], food:[]};
+      var icon = L.divIcon({className:'', html:'<div class="city-pin" style="width:14px;height:14px;background:var(--deep);"></div>', iconSize:[14,14], iconAnchor:[7,7]});
+      var pop = '<b>' + esc(c) + '</b>' + (cc.intro ? '<br>' + esc(cc.intro) : '') +
+        '<br>玩点：' + esc((cc.sights || []).join('；')) + '<br>美食：' + esc((cc.food || []).join('；'));
+      L.marker([ct.lat, ct.lng], {icon:icon}).addTo(nMap).bindPopup(pop);
+    });
+    $('netSub').textContent = Object.keys(CITY).length + ' 城 · ' + EDGES.length + ' 条逐条核实的走廊 · 点线看班次来源、点圆点看吃玩';
+    setTimeout(function(){ nMap.invalidateSize(); if (bounds.length) nMap.fitBounds(bounds, {padding:[30,30]}); }, 60);
+  } else {
+    setTimeout(function(){ nMap.invalidateSize(); }, 60);
+  }
+  window.scrollTo(0, 0);
+}
+
 /* ================= 主路由分发 ================= */
 function route(){
   var r = parseHash();
+  var isTop = (r.route === '/' || r.route === '' || r.route === '/network' || r.route === '/me');
+  $('tabbar').classList.toggle('on', isTop);
+  if (isTop) {
+    $('tabbar').querySelectorAll('.tb-item').forEach(function(b){
+      b.classList.toggle('on', b.dataset.tab === (r.route === '' ? '/' : r.route));
+    });
+  }
   if (r.route === '/' || r.route === '') { renderHome(); return; }
+  if (r.route === '/network') { renderNetwork(); return; }
+  if (r.route === '/me') { show('page-me'); window.scrollTo(0,0); return; }
   if (r.route === '/plan' || r.route === '/day' || r.route === '/map') {
     var ctx = planCtx(r.q);
     if (!ctx) { go('#/'); return; }
@@ -896,6 +1042,25 @@ function bindEvents(){
     route();
     toast('已切换为「' + PACES[b.dataset.p].label + '」节奏');
   });
+
+  /* 底部标签栏 */
+  $('tabbar').addEventListener('click', function(e){
+    var b = e.target.closest('.tb-item'); if (!b) return;
+    go('#' + b.dataset.tab);
+  });
+
+  /* 最近查询 */
+  $('recentRow').addEventListener('click', function(e){
+    var chip = e.target.closest('.rc-chip'); if (!chip) return;
+    var r = loadRecent()[+chip.dataset.i]; if (!r) return;
+    homeState.from = r.f; homeState.to = r.t; homeState.pace = r.p || 'bal';
+    go(planHash(r.f, r.t, r.p || 'bal', $('dateInput').value));
+  });
+  $('clearRecent').addEventListener('click', function(){
+    try { localStorage.removeItem('manba-recent'); } catch(e){}
+    renderRecent();
+    toast('已清除最近查询');
+  });
 }
 
 /* ================= 启动 ================= */
@@ -910,6 +1075,12 @@ bindEvents();
   var d = new Date();
   var s = d.getFullYear() + '-' + String(d.getMonth()+1).padStart(2,'0') + '-' + String(d.getDate()).padStart(2,'0');
   $('dateInput').min = s;
+})();
+/* 按时段问候 */
+(function(){
+  var h = new Date().getHours();
+  var g = h < 5 ? '夜深了，' : h < 11 ? '上午好，' : h < 13 ? '中午好，' : h < 18 ? '下午好，' : '晚上好，';
+  $('greetLine').textContent = g + '今天慢慢去哪座城？';
 })();
 window.addEventListener('hashchange', route);
 route();
